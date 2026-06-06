@@ -1,13 +1,25 @@
-# Etsy Web Generator V24 - Mode sécurisé photos
+# Etsy Web Generator V25
 
-Version Streamlit en français.
-
-Nouveautés V24 :
-- Mode sécurisé Etsy recommandé pour les corsets/lingerie.
-- Réduit les erreurs `moderation_blocked` / `sexual`.
-- Garde le mannequin/la pose par défaut et améliore surtout fond, décor, lumière et rendu e-commerce.
-- Options par photo : nombre de versions + vue face/dos/latérale/gros plan.
-- Extraction AliExpress + génération fiche Etsy en anglais.
+Interface française, génération de fiche Etsy en anglais, extraction AliExpress, photos avec prompt par image.
 
 ## Installation Streamlit
-Envoyez `app.py`, `requirements.txt`, `README.md` sur GitHub puis redémarrez l'application Streamlit.
+Uploader sur GitHub :
+- app.py
+- requirements.txt
+- README.md
+
+Puis Streamlit redéploie automatiquement.
+
+## Clés nécessaires
+Dans la sidebar ou Streamlit Secrets :
+
+OPENAI_API_KEY = "votre_cle_openai"
+SCRAPERAPI_KEY = "votre_cle_scraperapi"
+
+## Photos IA
+Chaque photo extraite a ses propres réglages :
+- utiliser ou non
+- vue : face, dos, profil, détail
+- style
+- nombre de variantes
+- prompt personnalisé
