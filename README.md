@@ -1,21 +1,13 @@
-# Etsy Product Listing Generator V23
+# Etsy Web Generator V24 - Mode sécurisé photos
 
-Version Streamlit en français avec extraction AliExpress, génération fiche Etsy en anglais, extraction photos, et génération photos premium.
+Version Streamlit en français.
 
-Nouveauté V23 : options par photo sélectionnée.
+Nouveautés V24 :
+- Mode sécurisé Etsy recommandé pour les corsets/lingerie.
+- Réduit les erreurs `moderation_blocked` / `sexual`.
+- Garde le mannequin/la pose par défaut et améliore surtout fond, décor, lumière et rendu e-commerce.
+- Options par photo : nombre de versions + vue face/dos/latérale/gros plan.
+- Extraction AliExpress + génération fiche Etsy en anglais.
 
-Pour chaque photo AliExpress, tu peux choisir :
-- utiliser ou non la photo ;
-- le nombre de versions à générer ;
-- la vue à respecter : automatique, face, dos, latérale, gros plan, flat lay.
-
-Déploiement :
-1. Envoyer `app.py`, `requirements.txt`, `README.md` sur GitHub.
-2. Commit changes.
-3. Streamlit se met à jour automatiquement.
-
-Secrets Streamlit recommandés :
-```toml
-OPENAI_API_KEY = "ta_cle_openai"
-SCRAPERAPI_KEY = "ta_cle_scraperapi"
-```
+## Installation Streamlit
+Envoyez `app.py`, `requirements.txt`, `README.md` sur GitHub puis redémarrez l'application Streamlit.

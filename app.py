@@ -328,41 +328,48 @@ def image_bytes_to_png_bytes(content: bytes):
     except Exception:
         return content
 
-PHOTO_PROMPT_DEFAULT = """OBJECTIVE:
-Create a realistic, professional, luxury ecommerce photo from the reference image.
+PHOTO_PROMPT_DEFAULT = """OBJECTIF :
+Créer une photo produit réaliste, professionnelle et premium à partir de l'image de référence.
 
-ABSOLUTE PRODUCT RULES:
-- Keep the product exactly identical to the original image.
-- Do not change the product shape, color, fabric, lace, pattern, stitching, seams, print, buttons, ribbons, accessories, proportions, or structure.
-- Do not redesign the product.
-- Do not invent new product details.
-- The product must look like the same real item the customer will receive.
+RÈGLES ABSOLUES SUR LE PRODUIT :
+- Garder le produit exactement identique à l'image originale.
+- Ne pas changer la forme, couleur, tissu, dentelle, motifs, coutures, imprimés, boutons, rubans, accessoires, proportions ou structure.
+- Ne pas redessiner le produit.
+- Ne pas inventer de nouveaux détails.
+- Le produit doit ressembler au même article réel que le client recevra.
 
-WHAT MAY CHANGE:
-- Background
-- Decor
-- Lighting
-- Overall environment
-- Model appearance if a model is present, while keeping the exact same product and view direction
+MODE SÉCURISÉ / NON SEXUALISÉ :
+- Image commerciale e-commerce, pas une image glamour ou lingerie.
+- Ne pas rendre la pose plus sexy ou plus révélatrice.
+- Ne pas augmenter la nudité ou l'exposition de peau.
+- Ne pas créer d'ambiance boudoir, érotique, provocante ou intime.
+- Garder une présentation modeste, naturelle, professionnelle et compatible marketplace.
 
-VIEW / ANGLE RULES:
-- Preserve the original viewing angle and product orientation.
-- If the reference image is a back view, the result must show the model/product from the back.
-- If the reference image is a front view, the result must show the model/product from the front.
-- If the reference image is a side view, the result must show the model/product from the side.
-- Never turn a back-view product into a front-view product.
+CE QUI PEUT CHANGER :
+- Fond
+- Décor
+- Éclairage
+- Ambiance générale
+- Qualité photo
+- Recadrage carré 1:1
 
-STYLE:
-- Ultra realistic luxury fashion ecommerce photography.
-- Natural human model, realistic skin, realistic proportions.
-- Elegant premium boutique interior, luxury apartment, Parisian room, or high-end hotel suite.
-- Soft natural daylight or professional studio lighting.
-- No artificial AI look, no plastic skin, no fantasy style.
-- Etsy-ready premium product photo.
-- Square 1:1 composition.
-- No text, no logo, no watermark."""
+VUE / ANGLE :
+- Préserver l'angle original et l'orientation du produit.
+- Si l'image est de dos, le résultat doit rester de dos.
+- Si l'image est de face, le résultat doit rester de face.
+- Si l'image est de côté, le résultat doit rester de côté.
+- Ne jamais transformer une vue de dos en vue de face.
 
-def build_photo_prompt(base_prompt: str, style: str, view: str, change_model: bool):
+STYLE :
+- Photo e-commerce premium ultra réaliste.
+- Décor intérieur élégant, boutique premium, appartement chic ou studio propre.
+- Lumière naturelle douce ou éclairage studio professionnel.
+- Peau réaliste, proportions réalistes, pas d'effet IA.
+- Image prête pour Etsy.
+- Format carré 1:1.
+- Aucun texte, logo, watermark ou marque."""
+
+def build_photo_prompt(base_prompt: str, style: str, view: str, change_model: bool, safe_mode: bool):
     view_map = {
         "Automatique": "Analyze the reference image and preserve the exact original view direction.",
         "Face": "The generated image must be a FRONT VIEW. Show the product from the front.",
@@ -377,7 +384,21 @@ def build_photo_prompt(base_prompt: str, style: str, view: str, change_model: bo
         "Fashion Editorial": "Use high-end fashion editorial photography, realistic magazine style, premium lighting.",
         "Clean Ecommerce": "Use a clean premium ecommerce studio background, minimal decor, very realistic product focus.",
     }
-    model_rule = "You may use a different realistic professional model if a model is present, but the product must remain exactly identical." if change_model else "Do not change the model/person; only improve background, lighting, and decor."
+    if safe_mode:
+        model_rule = "SAFE ETSY MODE ENABLED: do not change the model/person/body. Keep the same pose and coverage. Only improve background, decor, lighting, color grading, sharpness and ecommerce presentation. The result must be non-sexualized and marketplace-safe."
+    else:
+        model_rule = "You may use a different realistic professional model if a model is present, but preserve the same product, same coverage, same pose direction and same view. Do not make the image more revealing or sexualized." if change_model else "Do not change the model/person; only improve background, lighting, and decor."
+    safety_rule = """
+SAFETY / MARKETPLACE RULES:
+- Commercial product photo only.
+- No sexualized pose, no boudoir, no erotic atmosphere, no lingerie glamour style.
+- Do not increase nudity, cleavage emphasis, skin exposure, or body focus.
+- Keep the result suitable for Etsy product listing.
+""" if safe_mode else """
+SAFETY / MARKETPLACE RULES:
+- Keep the image commercial and non-explicit.
+- Do not increase nudity or make the pose more sexualized.
+"""
     return f"""{base_prompt}
 
 SELECTED STYLE:
@@ -389,7 +410,8 @@ SELECTED VIEW:
 MODEL RULE:
 {model_rule}
 
-Final reminder: edit the reference image; do not create a different product."""
+{safety_rule}
+Final reminder: edit the reference image; do not create a different product. Keep the product identical and keep the result realistic, modest, and ecommerce-safe."""
 
 def generate_premium_photo(api_key: str, image_url: str, prompt: str):
     content = download_image(image_url)
@@ -501,7 +523,10 @@ with col1:
     st.markdown('<div class="card"><div class="step"><span class="badge">3</span>✨ Génération photos premium</div>', unsafe_allow_html=True)
     st.caption("Utilise les photos sélectionnées comme référence. Le produit doit rester identique, seul le décor/mannequin/lumière change.")
     photo_style = st.selectbox("Style photo global", ["Luxury Interior", "Romantic Boutique", "Fashion Editorial", "Clean Ecommerce"], index=0)
-    change_model = st.checkbox("Changer le mannequin si présent", value=True)
+    safe_mode = st.checkbox("Mode sécurisé Etsy recommandé", value=True, help="Réduit les blocages de sécurité : garde le mannequin/la pose et change surtout le fond, le décor, l'éclairage et la qualité photo.")
+    change_model = st.checkbox("Changer le mannequin si présent", value=False, disabled=safe_mode, help="Désactivé en mode sécurisé car les corsets/lingerie peuvent être bloqués par l'API image.")
+    if safe_mode:
+        st.info("Mode sécurisé actif : le site garde le mannequin/la pose et améliore surtout fond, décor, lumière et rendu e-commerce. Cela évite l'erreur 'sexual/moderation_blocked'.")
     st.caption("Le nombre d'images et la vue se règlent maintenant sous chaque photo sélectionnée.")
     with st.expander("Modifier le prompt photo"):
         photo_prompt_base = st.text_area("Prompt photo personnalisé", value=PHOTO_PROMPT_DEFAULT, height=360)
@@ -527,13 +552,18 @@ with col1:
             prog = st.progress(0)
             for idx, job in enumerate(jobs, start=1):
                 try:
-                    prompt_final = build_photo_prompt(photo_prompt_base, photo_style, job["view"], change_model)
+                    prompt_final = build_photo_prompt(photo_prompt_base, photo_style, job["view"], change_model, safe_mode)
                     prompt_final += f"\n\nGenerate variant {job['variant']} for source photo {job['source_index']}. Keep the same requested view: {job['view']}."
                     with st.spinner(f"Génération {idx}/{len(jobs)} — photo {job['source_index']} vue {job['view']}..."):
                         out = generate_premium_photo(openai_key, job["url"], prompt_final)
                         generated.append({"bytes": out, "source": job["url"], "style": photo_style, "view": job["view"], "source_index": job["source_index"], "variant": job["variant"]})
                 except Exception as e:
-                    st.error(f"Erreur génération {idx}: {e}")
+                    
+                    msg = str(e)
+                    if "moderation_blocked" in msg or "safety" in msg or "sexual" in msg:
+                        st.error("Erreur sécurité image : l'API a bloqué cette photo. Essaie le Mode sécurisé Etsy, choisis 'Clean Ecommerce', et évite de changer le mannequin pour les corsets/lingerie.")
+                    else:
+                        st.error(f"Erreur génération {idx}: {e}")
                 prog.progress(idx / len(jobs))
             if generated:
                 st.session_state.generated_photos = generated
