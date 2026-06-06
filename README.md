@@ -1,31 +1,12 @@
-# Etsy Product Listing Generator V18
+# Etsy Web Generator V19 - Style Premium
 
-Version avec génération de photos plus fidèle :
+Version avec une interface inspirée du style premium beige/doré : cartes arrondies, layout en une seule page, sections numérotées, photos, prompts et génération fiche produit.
 
-- Interface française.
-- Fiches Etsy générées en anglais.
-- Extraction AliExpress + ScraperAPI.
-- Photos AliExpress extraites.
-- Sélection des photos.
-- Choix de la vue pour chaque photo : automatique, face, dos, latérale, gros plan, flat lay.
-- Prompt photo personnalisable.
-- Styles photo : Luxury Interior, Fashion Editorial, Romantic Boutique, Clean Ecommerce.
-- Mode de modification : changer fond/décor/mannequin, changer seulement fond/décor, retouche légère.
-- Règles renforcées pour garder le produit identique.
-
-## Déploiement Streamlit
-
-Uploader sur GitHub :
-
-- app.py
-- requirements.txt
-- README.md
-
-Puis laisser Streamlit redéployer.
+## Déploiement
+1. Envoyer app.py, requirements.txt et README.md sur GitHub.
+2. Commit changes.
+3. Attendre le redéploiement Streamlit.
 
 ## Secrets Streamlit recommandés
-
-```toml
 OPENAI_API_KEY = "ta_cle_openai"
 SCRAPERAPI_KEY = "ta_cle_scraperapi"
-```
