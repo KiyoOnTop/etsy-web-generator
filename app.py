@@ -5,10 +5,10 @@ from bs4 import BeautifulSoup
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="Etsy Corset Listing Generator V4", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Etsy Listing Generator V5", page_icon="🛍️", layout="wide")
 
-st.title("🛍️ Etsy Corset Product Listing Generator V4")
-st.caption("Paste an AliExpress URL, extract product info when possible, then generate an English SEO Etsy listing specialized for corsets.")
+st.title("🛍️ Etsy Product Listing Generator V5")
+st.caption("Paste an AliExpress URL, choose a product category or edit the prompt manually, then generate an English SEO Etsy listing.")
 
 # ---------- Helpers ----------
 def get_secret(name: str, default: str = "") -> str:
@@ -19,6 +19,35 @@ def get_secret(name: str, default: str = "") -> str:
 
 OPENAI_SECRET = get_secret("OPENAI_API_KEY", "")
 SCRAPERAPI_SECRET = get_secret("SCRAPERAPI_KEY", "")
+
+CATEGORY_PROMPTS = {
+    "Corsets": """I run an Etsy dropshipping store specialized in corsets. Focus on buyers looking for corsets, waist trainers, gothic corsets, renaissance corsets, burlesque fashion, shapewear and alternative fashion when relevant.""",
+    "Jewelry": """I run an Etsy dropshipping store specialized in jewelry and accessories. Focus on giftable jewelry, elegant accessories, minimalist jewelry, statement pieces, birthday gifts and everyday fashion accessories when relevant.""",
+    "Home Decor": """I run an Etsy dropshipping store specialized in home decor. Focus on cozy decor, aesthetic room decor, modern home accessories, housewarming gifts, minimalist decor and stylish interior decoration when relevant.""",
+    "Pet Products": """I run an Etsy dropshipping store specialized in pet products. Focus on pet owners, dog lovers, cat lovers, practical pet accessories, cute pet gifts and comfort-focused products when relevant.""",
+    "Beauty Accessories": """I run an Etsy dropshipping store specialized in beauty accessories. Focus on beauty lovers, skincare routines, makeup organization, self-care gifts, practical beauty tools and elegant bathroom accessories when relevant.""",
+    "Clothing / Fashion": """I run an Etsy dropshipping store specialized in fashion and clothing. Focus on outfit styling, trend-focused buyers, everyday wear, statement fashion pieces, gifts and aesthetic clothing when relevant.""",
+    "Custom / Manual prompt": """Write your own store niche, target audience, SEO angle and style instructions here.""",
+}
+
+DEFAULT_RULES = """You are an Etsy SEO expert and high-converting product listing copywriter.
+
+Your mission is to generate a complete Etsy product listing including:
+1. An SEO-optimized Etsy title that is highly relevant to search keywords while remaining natural and readable.
+2. An SEO-optimized product description written in fluent English, persuasive and pleasant to read, with a warm tone and a few relevant emojis (not excessive).
+3. Exactly 13 Etsy tags optimized for Etsy SEO.
+
+Important rules:
+- Output everything in English.
+- Do NOT claim handmade unless explicitly stated by the user.
+- Never copy competitor text word-for-word.
+- Keep the style natural, persuasive and conversion-focused.
+- Avoid keyword stuffing.
+- Keep the Etsy title under 140 characters.
+- Tags must be maximum 20 characters each.
+- Tags must be provided on a single line separated by commas.
+- Use the strongest Etsy keywords naturally in the title and first paragraph.
+- Make the listing ready to copy and paste into Etsy."""
 
 with st.sidebar:
     st.header("Settings")
@@ -44,17 +73,7 @@ def fetch_url(url: str, scraper_key: str = ""):
     try:
         if scraper_key:
             api_url = "http://api.scraperapi.com/"
-            r = requests.get(
-                api_url,
-                params={
-                    "api_key": scraper_key,
-                    "url": url,
-                    "render": "true",
-                    "country_code": "us",
-                    "premium": "true",
-                },
-                timeout=60,
-            )
+            r = requests.get(api_url, params={"api_key": scraper_key, "url": url, "render": "true", "country_code": "us"}, timeout=60)
         else:
             r = requests.get(url, headers=headers, timeout=25)
         if r.status_code >= 400:
@@ -83,21 +102,10 @@ def extract_product_from_html(html: str):
     text = html
     candidates = re.findall(r'"(?:subject|title|productTitle)"\s*:\s*"(.*?)"', text)
     if candidates:
-        decoded = []
-        for c in candidates:
-            try:
-                decoded.append(c.encode("utf-8").decode("unicode_escape", errors="ignore"))
-            except Exception:
-                decoded.append(c)
-        title = max(decoded, key=len)
-
+        title = max([c.encode('utf-8').decode('unicode_escape', errors='ignore') for c in candidates], key=len)
     desc_candidates = re.findall(r'"(?:description|productDescription|seoDescription)"\s*:\s*"(.*?)"', text)
     for c in desc_candidates[:5]:
-        try:
-            desc_parts.append(c.encode("utf-8").decode("unicode_escape", errors="ignore"))
-        except Exception:
-            desc_parts.append(c)
-
+        desc_parts.append(c.encode('utf-8').decode('unicode_escape', errors='ignore'))
     price_candidates = re.findall(r'"(?:salePrice|formattedPrice|price)"\s*:\s*"?([^",}]+)', text)
     if price_candidates:
         price = price_candidates[0]
@@ -114,45 +122,30 @@ def recommended_price(cost, shipping, margin_pct, fees_pct):
     return round((cost + shipping) / denominator, 2)
 
 
-def safe_list(value):
-    if isinstance(value, list):
-        return value
-    if isinstance(value, str):
-        return [x.strip() for x in value.split(",") if x.strip()]
-    return []
-
-
-def generate_listing(api_key, data, niche, tone, cost_price, competitor_info):
+def generate_listing(api_key, data, niche, tone, cost_price, category, custom_prompt, competitor_info, keywords):
     client = OpenAI(api_key=api_key)
     sell_price = recommended_price(cost_price, shipping, margin, fees_pct)
+
     prompt = f"""
-You are an Etsy SEO expert and high-converting product listing copywriter.
+{DEFAULT_RULES}
 
-I run an Etsy dropshipping store specialized in corsets.
+Selected product category:
+{category}
 
-You will receive:
-- An AliExpress product title
-- An AliExpress product description
-- Optional keywords or competitor information
+Category / custom instructions:
+{custom_prompt}
 
-Your mission is to generate a complete Etsy product listing including:
+Additional target buyer / niche:
+{niche}
 
-1. An SEO-optimized Etsy title that is highly relevant to search keywords while remaining natural and readable.
-2. An SEO-optimized product description written in fluent English, persuasive and pleasant to read, with a warm tone and a few relevant emojis, but not too many.
-3. Exactly 13 Etsy tags optimized for Etsy SEO.
+Optional SEO keywords to prioritize:
+{keywords}
 
-Important rules:
-- Output everything in English.
-- Never copy competitor text word-for-word.
-- Keep the style natural, persuasive and conversion-focused.
-- Avoid keyword stuffing.
-- Tags must be maximum 20 characters each.
-- Tags must be provided on a single line separated by commas.
-- Use the strongest Etsy keywords naturally in the title and first paragraph.
-- Focus on corsets, waist trainers, gothic corsets, renaissance corsets, burlesque fashion, shapewear and alternative fashion whenever relevant.
-- Do NOT claim handmade unless the supplier data clearly says handmade.
-- Do NOT make medical, permanent body transformation, or unrealistic slimming claims.
-- Keep the SEO title under 140 characters.
+Optional competitor inspiration. Use it for ideas only, never copy it word-for-word:
+{competitor_info}
+
+Tone:
+{tone}
 
 Supplier title:
 {data.get('title','')}
@@ -163,15 +156,6 @@ Supplier description:
 Supplier price:
 {data.get('price','')}
 
-Target buyer / niche:
-{niche}
-
-Tone:
-{tone}
-
-Optional keywords or competitor information:
-{competitor_info}
-
 Cost price:
 {cost_price} {currency}
 
@@ -179,7 +163,7 @@ Suggested selling price:
 {sell_price} {currency}
 
 Return ONLY valid JSON with these keys:
-seo_title, short_description, full_description, bullet_points, tags, keywords, category_suggestion, suggested_price, copy_paste_block
+seo_title, short_description, full_description, bullet_points, tags, tags_one_line, keywords, category_suggestion, suggested_price, copy_paste_block
 """
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -187,11 +171,7 @@ seo_title, short_description, full_description, bullet_points, tags, keywords, c
         temperature=0.7,
         response_format={"type": "json_object"},
     )
-    result = json.loads(response.choices[0].message.content)
-    result["tags"] = safe_list(result.get("tags", []))[:13]
-    result["keywords"] = safe_list(result.get("keywords", []))
-    result["suggested_price"] = result.get("suggested_price", f"{sell_price} {currency}")
-    return result
+    return json.loads(response.choices[0].message.content)
 
 # ---------- UI ----------
 left, right = st.columns([1.05, 0.95])
@@ -225,12 +205,42 @@ with left:
             st.rerun()
 
     title = st.text_input("Supplier product title", value=extracted.get("title", ""))
-    description = st.text_area("Supplier product description", value=extracted.get("description", ""), height=220)
+    description = st.text_area("Supplier product description", value=extracted.get("description", ""), height=180)
     supplier_price = st.text_input("Supplier price detected optional", value=extracted.get("price", ""))
     cost_price = st.number_input("Product cost price", min_value=0.0, value=5.0, step=0.5)
-    niche = st.text_input("Target buyer / niche", value="corset, gothic fashion, waist trainer", placeholder="Example: gothic corset, renaissance outfit, burlesque fashion")
-    tone = st.selectbox("Tone", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"], index=0)
-    competitor_info = st.text_area("Optional keywords or competitor listing", placeholder="Paste competitor title, keywords, or notes here. The app will take inspiration without copying.", height=120)
+
+    st.subheader("Prompt / category settings")
+    selected_category = st.selectbox("Product category", list(CATEGORY_PROMPTS.keys()), index=0)
+
+    if "last_category" not in st.session_state:
+        st.session_state["last_category"] = selected_category
+        st.session_state["custom_prompt"] = CATEGORY_PROMPTS[selected_category]
+    elif st.session_state["last_category"] != selected_category:
+        st.session_state["last_category"] = selected_category
+        st.session_state["custom_prompt"] = CATEGORY_PROMPTS[selected_category]
+
+    custom_prompt = st.text_area(
+        "Editable prompt instructions",
+        value=st.session_state.get("custom_prompt", CATEGORY_PROMPTS[selected_category]),
+        height=180,
+        help="You can edit this manually for any niche: corsets, jewelry, home decor, pet products, etc.",
+    )
+    st.session_state["custom_prompt"] = custom_prompt
+
+    colP1, colP2 = st.columns(2)
+    with colP1:
+        if st.button("Reset prompt for this category"):
+            st.session_state["custom_prompt"] = CATEGORY_PROMPTS[selected_category]
+            st.rerun()
+    with colP2:
+        if st.button("Use blank custom prompt"):
+            st.session_state["custom_prompt"] = ""
+            st.rerun()
+
+    niche = st.text_input("Target buyer / niche", placeholder="Example: gothic fashion, women gift, home decor, pet lovers")
+    keywords = st.text_input("Optional SEO keywords", placeholder="Example: gothic corset, waist trainer, renaissance outfit")
+    competitor_info = st.text_area("Optional competitor listing or notes", height=100, placeholder="Paste competitor title/description here if you want inspiration. Do not copy competitors directly.")
+    tone = st.selectbox("Tone", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
 
     if st.button("Generate Etsy listing", type="primary"):
         if not openai_key:
@@ -238,9 +248,19 @@ with left:
         elif not title and not description:
             st.error("Extract product info from URL or paste title/description manually.")
         else:
-            with st.spinner("Generating English Etsy SEO listing for corsets..."):
+            with st.spinner("Generating English Etsy SEO listing..."):
                 try:
-                    result = generate_listing(openai_key, {"title": title, "description": description, "price": supplier_price}, niche, tone, cost_price, competitor_info)
+                    result = generate_listing(
+                        openai_key,
+                        {"title": title, "description": description, "price": supplier_price},
+                        niche,
+                        tone,
+                        cost_price,
+                        selected_category,
+                        custom_prompt,
+                        competitor_info,
+                        keywords,
+                    )
                     st.session_state["result"] = result
                 except Exception as e:
                     st.error(f"Generation failed: {e}")
@@ -249,7 +269,7 @@ with right:
     st.subheader("Generated Etsy listing")
     result = st.session_state.get("result")
     if not result:
-        st.info("Your generated corset listing will appear here.")
+        st.info("Your generated listing will appear here.")
     else:
         st.markdown("### SEO Title")
         st.code(result.get("seo_title", ""), language=None)
@@ -258,10 +278,12 @@ with right:
         st.markdown("### Full description")
         st.write(result.get("full_description", ""))
         st.markdown("### Bullet points")
-        for b in safe_list(result.get("bullet_points", [])):
+        for b in result.get("bullet_points", []):
             st.write(f"• {b}")
         st.markdown("### 13 Etsy tags")
-        st.code(", ".join(safe_list(result.get("tags", []))[:13]), language=None)
+        tags = result.get("tags", [])
+        tags_one_line = result.get("tags_one_line", ", ".join(tags if isinstance(tags, list) else []))
+        st.code(tags_one_line, language=None)
         st.markdown("### Suggested price")
         st.code(str(result.get("suggested_price", "")), language=None)
         st.markdown("### Copy-paste block")

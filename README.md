@@ -1,17 +1,26 @@
-# Etsy Corset Listing Generator V4
+# Etsy Listing Generator V5
 
-Streamlit app for generating English Etsy SEO product listings specialized for corsets.
+A Streamlit app that generates English Etsy product listings from AliExpress product data.
 
-## Features
+## V5 features
+
 - AliExpress URL extraction when possible
-- Optional ScraperAPI support for blocked pages
-- English Etsy SEO title
-- Warm conversion-focused description with a few emojis
-- Exactly 13 Etsy tags
-- Optional competitor/keyword input
-- Suggested price calculation
+- Optional ScraperAPI support
+- OpenAI-powered English SEO title, description and tags
+- Editable prompt area directly inside the website
+- Multiple preset categories:
+  - Corsets
+  - Jewelry
+  - Home Decor
+  - Pet Products
+  - Beauty Accessories
+  - Clothing / Fashion
+  - Custom / Manual prompt
+- Optional SEO keywords
+- Optional competitor inspiration field
 
 ## Streamlit secrets
+
 Add these in Streamlit Cloud secrets:
 
 ```toml
@@ -19,4 +28,4 @@ OPENAI_API_KEY = "your_openai_key_here"
 SCRAPERAPI_KEY = "your_scraperapi_key_here"
 ```
 
-SCRAPERAPI_KEY is optional, but useful for AliExpress extraction.
+ScraperAPI is optional, but helps with AliExpress extraction.
