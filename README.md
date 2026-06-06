@@ -1,7 +1,31 @@
-# Etsy Generator Pro V17 — Photos IA avec référence
+# Etsy Product Listing Generator V18
 
-Interface française, génération de fiches Etsy en anglais.
+Version avec génération de photos plus fidèle :
 
-Nouveauté V17 : les photos IA sont générées à partir des photos AliExpress sélectionnées comme référence visuelle, au lieu d'une génération texte seule. Cela aide à garder le produit beaucoup plus proche de l'original.
+- Interface française.
+- Fiches Etsy générées en anglais.
+- Extraction AliExpress + ScraperAPI.
+- Photos AliExpress extraites.
+- Sélection des photos.
+- Choix de la vue pour chaque photo : automatique, face, dos, latérale, gros plan, flat lay.
+- Prompt photo personnalisable.
+- Styles photo : Luxury Interior, Fashion Editorial, Romantic Boutique, Clean Ecommerce.
+- Mode de modification : changer fond/décor/mannequin, changer seulement fond/décor, retouche légère.
+- Règles renforcées pour garder le produit identique.
 
-⚠️ Important : vérifie toujours que les photos générées représentent fidèlement le produit réel avant de les utiliser sur Etsy.
+## Déploiement Streamlit
+
+Uploader sur GitHub :
+
+- app.py
+- requirements.txt
+- README.md
+
+Puis laisser Streamlit redéployer.
+
+## Secrets Streamlit recommandés
+
+```toml
+OPENAI_API_KEY = "ta_cle_openai"
+SCRAPERAPI_KEY = "ta_cle_scraperapi"
+```

@@ -289,7 +289,7 @@ def prepare_image_for_edit(image_bytes: bytes) -> io.BytesIO | None:
         return None
 
 
-def generate_ai_image_from_reference(api_key: str, photo_prompt: str, product_title: str, product_desc: str, reference_url: str) -> bytes | None:
+def generate_ai_image_from_reference(api_key: str, photo_prompt: str, product_title: str, product_desc: str, reference_url: str, view_angle: str, photo_style: str, edit_mode: str) -> bytes | None:
     """Edit the selected AliExpress image as a visual reference instead of generating from text only.
     This gives much better product fidelity, but the user should still verify every image before Etsy upload.
     """
@@ -304,19 +304,63 @@ def generate_ai_image_from_reference(api_key: str, photo_prompt: str, product_ti
         return None
 
     client = OpenAI(api_key=api_key)
+    view_rules = {
+        "Vue de face": "The final image MUST show the FRONT view of the product. The model must face the camera or be in a natural front/three-quarter-front pose. Never show the back side of the garment for this image.",
+        "Vue de dos": "The final image MUST show the BACK view of the product. The model must be turned away from the camera or in a natural back/three-quarter-back pose. Do NOT put the back of the garment on the front of the body. Show the real back side logically worn on the back.",
+        "Vue latérale": "The final image MUST show a SIDE view of the product. The model must be in a natural side pose. Preserve the original side orientation.",
+        "Gros plan produit": "The final image MUST stay as a close-up/detail product shot. Keep the same close-up logic and do not invent a full-body scene unless necessary.",
+        "Produit seul / flat lay": "The final image MUST keep the product as a product-only or flat-lay style shot. Do not add a model unless the user explicitly asks for one.",
+        "Automatique": "Analyze the reference image and preserve the same viewing angle: front stays front, back stays back, side stays side, close-up stays close-up."
+    }
+    style_rules = {
+        "Luxury Interior": "Use a realistic luxury interior: elegant Parisian apartment, boutique hotel suite, warm neutral decor, soft natural daylight, refined furniture, flowers or subtle decor only if tasteful.",
+        "Fashion Editorial": "Use a realistic high-end fashion editorial style: premium studio or editorial interior, professional lighting, elegant pose, magazine-quality but not artificial.",
+        "Romantic Boutique": "Use a soft romantic boutique atmosphere: warm daylight, feminine elegant decor, subtle flowers, cozy luxury, natural realism.",
+        "Clean Ecommerce": "Use a clean premium ecommerce setup: simple elegant background, minimal decor, sharp product visibility, realistic lighting, no distractions."
+    }
+    mode_rules = {
+        "Changer fond + décor + mannequin si présent": "You may change the model, background, decor and lighting, but the product must stay identical and the viewing angle must stay the same.",
+        "Changer seulement fond + décor": "Keep the original product and body/model as close as possible. Change mainly the background, decor, lighting and overall photo quality.",
+        "Retouche légère uniquement": "Do not change the model or product. Only improve lighting, contrast, sharpness, crop, background cleanliness and luxury feel."
+    }
+
     final_prompt = f"""Edit the provided reference product photo into an Etsy-ready luxury ecommerce image.
 
-ABSOLUTE PRIORITY: preserve the exact product from the reference image.
-- Keep the same garment/product design, shape, color, fabric, texture, embroidery, print, pattern, lace, seams, buttons, straps, closures, decorations and proportions.
-- Do not replace the product with a different product.
-- Do not invent new colors, flowers, patterns, accessories, or design details.
-- If the reference image is a flat-lay product photo, keep the product visually identical and improve the presentation.
-- If a model is added or changed, the product worn by the model must still match the reference product as closely as possible.
+CRITICAL GOAL:
+Create a realistic, professional, luxury product photo while keeping the product from the reference image as identical as possible.
+
+ABSOLUTE PRODUCT PRESERVATION RULES:
+- Keep the exact same product design, shape, structure, proportions and silhouette.
+- Keep the exact same colors, fabric, texture, lace, embroidery, print, floral pattern, seams, ribbons, buttons, straps, closures, trim and accessories.
+- Do NOT redesign the product.
+- Do NOT invent new patterns, new flowers, new lace, new straps, new colors or new decorations.
+- Do NOT turn the garment inside out or place the back of the garment on the front of the body.
+- The image must still look like the real product being sold.
+
+VIEW ANGLE RULES:
+Selected view: {view_angle}
+{view_rules.get(view_angle, view_rules['Automatique'])}
+
+EDIT MODE:
+{edit_mode}
+{mode_rules.get(edit_mode, mode_rules['Changer fond + décor + mannequin si présent'])}
+
+PHOTO STYLE:
+{photo_style}
+{style_rules.get(photo_style, style_rules['Luxury Interior'])}
+
+REALISM REQUIREMENTS:
+- Make it look like a real professional photo, not AI-generated.
+- Natural skin texture and body proportions.
+- Realistic fabric tension and fit.
+- Realistic shadows, lighting and camera perspective.
+- No plastic skin, no fantasy look, no over-smoothed face, no distorted hands or body.
+- Keep the product clearly visible and centered for Etsy buyers.
 
 Product title/context: {product_title}
 Product details/context: {product_desc[:1000]}
 
-User image style instructions:
+Additional user instructions:
 {photo_prompt}
 
 Output requirements: square 1:1, ultra realistic, professional, luxury ecommerce style, no text, no logo, no watermark, Etsy-ready.
@@ -336,58 +380,32 @@ Output requirements: square 1:1, ultra realistic, professional, luxury ecommerce
         return None
 
 
-DEFAULT_PHOTO_PROMPT = """You are a professional luxury ecommerce photographer and art director.
+DEFAULT_PHOTO_PROMPT = """Objectif : créer une photo produit réaliste, professionnelle et luxueuse pour Etsy, en gardant le produit AliExpress le plus identique possible.
 
-Your task is to recreate this product image while keeping the product 100% identical to the original.
+Règles obligatoires :
+- Ne change pas le produit.
+- Ne change pas la forme, les couleurs, les motifs, la dentelle, les coutures, les rubans, les boutons, les bretelles, les matières ou les proportions.
+- Garde le même angle logique : si la photo est de dos, le mannequin doit être de dos ; si la photo est de face, le mannequin doit être de face ; si la photo est latérale, la pose doit rester latérale.
+- Ne mets jamais un corset de dos sur le devant du mannequin.
+- Ne crée pas un nouveau design.
 
-Important requirements:
-- The product itself must remain exactly the same.
-- Do not modify the shape, color, texture, materials, details, patterns, accessories, or design of the product.
-- Preserve all product features exactly as shown in the original image.
-- Only improve the presentation and photography.
+Tu peux changer :
+- le fond,
+- le décor,
+- la lumière,
+- l'ambiance,
+- le mannequin si présent, uniquement si le produit reste fidèle.
 
-Photography style:
-- Ultra realistic professional luxury fashion photography.
-- Premium ecommerce quality.
-- High-end boutique aesthetic.
-- Clean and elegant composition.
-- Natural studio lighting.
-- Soft luxury shadows.
-- High detail and sharp focus.
-- Premium magazine-quality image.
-- Expensive and sophisticated look.
-
-Model requirements:
-- Use a different professional-looking model if a model is needed.
-- Attractive and natural appearance.
-- Luxury fashion model style.
-- Confident and elegant pose.
-- Realistic skin and proportions.
-- No exaggerated beauty filters.
-
-Background requirements:
-- Elegant luxury environment.
-- High-end fashion editorial atmosphere.
-- Minimalist premium decor.
-- Neutral and sophisticated colors.
-- Background must enhance the product without distracting from it.
-
-Output requirements:
-- Square format 1:1.
-- Ultra realistic.
-- High resolution.
-- Etsy-ready product photography.
-- Commercial ecommerce quality.
-- No text.
-- No watermark.
-- No logo.
-- No brand names.
-
-Priority order:
-1. Preserve the product exactly.
-2. Improve image quality.
-3. Create a luxury premium presentation.
-4. Maximize conversion potential for Etsy buyers."""
+Style souhaité :
+- photo ultra réaliste,
+- rendu professionnel e-commerce,
+- intérieur luxueux et élégant,
+- lumière naturelle douce,
+- ambiance boutique haut de gamme,
+- pas d’aspect IA,
+- pas de texte, pas de logo, pas de watermark,
+- format carré 1:1.
+"""
 
 # -------------------- STATE --------------------
 if "product" not in st.session_state:
@@ -418,7 +436,7 @@ with st.sidebar:
 # -------------------- HERO --------------------
 st.markdown("""
 <div class="hero">
-  <h1>🛍️ Générateur Etsy SEO — Accueil unique</h1>
+  <h1>🛍️ Générateur Etsy SEO — Photos fidèles</h1>
   <p style="font-size:18px;color:#4b5563;">Tout se fait sur cette page : lien AliExpress, prompts, photos, prix, génération et copie du résultat. L’interface est en français, mais les fiches Etsy sont générées en anglais pour le SEO.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -502,13 +520,17 @@ with left:
     images = st.session_state.product.get("images", []) or []
     if images:
         st.caption(f"{len(images)} image(s) trouvée(s). Sélectionne celles que tu veux garder ou transformer.")
-        selected_urls = []
+        selected_items = []
         cols = st.columns(4)
+        view_options = ["Automatique", "Vue de face", "Vue de dos", "Vue latérale", "Gros plan produit", "Produit seul / flat lay"]
         for idx, img_url in enumerate(images[:12]):
             with cols[idx % 4]:
                 st.image(img_url, use_container_width=True)
-                if st.checkbox("Sélectionner", value=idx < 4, key=f"imgsel_{idx}"):
-                    selected_urls.append(img_url)
+                is_selected = st.checkbox("Sélectionner", value=idx < 4, key=f"imgsel_{idx}")
+                angle = st.selectbox("Vue", view_options, index=0, key=f"view_angle_{idx}")
+                if is_selected:
+                    selected_items.append({"url": img_url, "view": angle})
+        selected_urls = [item["url"] for item in selected_items]
         z1, z2 = st.columns(2)
         with z1:
             if selected_urls:
@@ -518,18 +540,22 @@ with left:
                 st.download_button("⬇️ Télécharger photos carrées propres", make_zip_from_images(selected_urls, square=True), "photos_carrees_etsy.zip", "application/zip", use_container_width=True)
     else:
         selected_urls = []
+        selected_items = []
         st.warning("Aucune photo extraite pour l’instant. Essaie avec ScraperAPI ou colle le titre/description manuellement.")
 
     photo_prompt = st.text_area(
         "Prompt photo personnalisable",
         value=DEFAULT_PHOTO_PROMPT,
-        height=120,
+        height=150,
     )
-    col_img1, col_img2 = st.columns(2)
+    col_img1, col_img2, col_img3 = st.columns(3)
     with col_img1:
-        nb_images = st.slider("Nombre de photos IA à générer depuis les images sélectionnées", 1, 4, 1)
+        nb_images = st.slider("Nombre de photos IA à générer", 1, 4, 1)
     with col_img2:
-        st.caption("Cette version utilise les photos sélectionnées comme référence visuelle. C’est beaucoup plus fidèle qu’une génération texte seule, mais vérifie toujours avant Etsy.")
+        photo_style = st.selectbox("Style photo", ["Luxury Interior", "Fashion Editorial", "Romantic Boutique", "Clean Ecommerce"], index=0)
+    with col_img3:
+        edit_mode = st.selectbox("Type de modification", ["Changer fond + décor + mannequin si présent", "Changer seulement fond + décor", "Retouche légère uniquement"], index=0)
+    st.info("Pour chaque photo sélectionnée, choisis la vue : face, dos, latérale, gros plan ou automatique. Ça aide l’IA à ne pas mettre un corset de dos sur un mannequin de face.")
     if st.button("✨ Générer nouvelles photos IA à partir des images sélectionnées", use_container_width=True):
         if not openai_key:
             st.error("Ajoute ta clé OpenAI d’abord.")
@@ -539,10 +565,12 @@ with left:
             st.error("Ajoute ou extrais les infos produit avant de générer les photos.")
         else:
             st.session_state.generated_images = []
-            urls_to_edit = selected_urls[:nb_images]
+            items_to_edit = selected_items[:nb_images]
             with st.spinner("Génération des photos IA à partir des images sélectionnées..."):
-                for ref_url in urls_to_edit:
-                    img_data = generate_ai_image_from_reference(openai_key, photo_prompt, product.get("title",""), product.get("description",""), ref_url)
+                for item in items_to_edit:
+                    ref_url = item["url"]
+                    view_angle = item.get("view", "Automatique")
+                    img_data = generate_ai_image_from_reference(openai_key, photo_prompt, product.get("title",""), product.get("description",""), ref_url, view_angle, photo_style, edit_mode)
                     if img_data:
                         st.session_state.generated_images.append(img_data)
             if st.session_state.generated_images:
