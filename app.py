@@ -272,11 +272,15 @@ def make_zip_from_images(urls: List[str], square: bool = False) -> bytes:
 def generate_ai_image(api_key: str, photo_prompt: str, product_title: str, product_desc: str) -> bytes | None:
     # Generates a new product-style image from text context. It does not truly edit the AliExpress image.
     client = OpenAI(api_key=api_key)
-    final_prompt = f"""Create a square 1:1 professional luxury ecommerce product photo for Etsy.
-Product: {product_title}
-Product details: {product_desc[:900]}
-User photo prompt: {photo_prompt}
-Keep the product faithful to the described item. Clean premium lighting, realistic fashion editorial look, no logos, no text, no watermark."""
+    final_prompt = f"""You are generating an Etsy-ready luxury ecommerce image.
+
+Product title: {product_title}
+Product details: {product_desc[:1200]}
+
+Custom image instructions:
+{photo_prompt}
+
+Critical rule: the product must stay visually faithful to the original product information. Do not invent a different product, color, shape, material, pattern, closure, decoration, or accessory. Output a square 1:1 ultra-realistic professional image with no text, no logo and no watermark."""
     try:
         result = client.images.generate(
             model="gpt-image-1",
@@ -289,6 +293,60 @@ Keep the product faithful to the described item. Clean premium lighting, realist
     except Exception as e:
         st.error(f"Génération photo impossible : {e}")
         return None
+
+
+DEFAULT_PHOTO_PROMPT = """You are a professional luxury ecommerce photographer and art director.
+
+Your task is to recreate this product image while keeping the product 100% identical to the original.
+
+Important requirements:
+- The product itself must remain exactly the same.
+- Do not modify the shape, color, texture, materials, details, patterns, accessories, or design of the product.
+- Preserve all product features exactly as shown in the original image.
+- Only improve the presentation and photography.
+
+Photography style:
+- Ultra realistic professional luxury fashion photography.
+- Premium ecommerce quality.
+- High-end boutique aesthetic.
+- Clean and elegant composition.
+- Natural studio lighting.
+- Soft luxury shadows.
+- High detail and sharp focus.
+- Premium magazine-quality image.
+- Expensive and sophisticated look.
+
+Model requirements:
+- Use a different professional-looking model if a model is needed.
+- Attractive and natural appearance.
+- Luxury fashion model style.
+- Confident and elegant pose.
+- Realistic skin and proportions.
+- No exaggerated beauty filters.
+
+Background requirements:
+- Elegant luxury environment.
+- High-end fashion editorial atmosphere.
+- Minimalist premium decor.
+- Neutral and sophisticated colors.
+- Background must enhance the product without distracting from it.
+
+Output requirements:
+- Square format 1:1.
+- Ultra realistic.
+- High resolution.
+- Etsy-ready product photography.
+- Commercial ecommerce quality.
+- No text.
+- No watermark.
+- No logo.
+- No brand names.
+
+Priority order:
+1. Preserve the product exactly.
+2. Improve image quality.
+3. Create a luxury premium presentation.
+4. Maximize conversion potential for Etsy buyers."""
 
 # -------------------- STATE --------------------
 if "product" not in st.session_state:
@@ -423,14 +481,14 @@ with left:
 
     photo_prompt = st.text_area(
         "Prompt photo personnalisable",
-        value="Refais ces photos de manière professionnelle et luxueuse. Je veux que la femme qui porte ces vêtements soit différente. Format carré 1:1. Style éditorial premium, éclairage studio, rendu réaliste, sans logo, sans texte, fidèle au produit.",
+        value=DEFAULT_PHOTO_PROMPT,
         height=120,
     )
     col_img1, col_img2 = st.columns(2)
     with col_img1:
         nb_images = st.slider("Nombre de nouvelles photos IA", 1, 4, 1)
     with col_img2:
-        st.caption("La génération IA utilise la clé OpenAI. Elle peut coûter plus cher que le texte.")
+        st.caption("La génération IA utilise la clé OpenAI. Pour garder le produit identique, vérifie toujours les images avant de les publier sur Etsy.")
     if st.button("✨ Générer nouvelles photos IA", use_container_width=True):
         if not openai_key:
             st.error("Ajoute ta clé OpenAI d’abord.")
