@@ -269,21 +269,62 @@ def make_zip_from_images(urls: List[str], square: bool = False) -> bytes:
     return mem.getvalue()
 
 
-def generate_ai_image(api_key: str, photo_prompt: str, product_title: str, product_desc: str) -> bytes | None:
-    # Generates a new product-style image from text context. It does not truly edit the AliExpress image.
+def prepare_image_for_edit(image_bytes: bytes) -> io.BytesIO | None:
+    """Convert the selected AliExpress image into a clean PNG file object for image editing."""
+    try:
+        im = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+        im = ImageOps.exif_transpose(im)
+        # Keep the full product visible, add white padding to square instead of cropping.
+        im.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (1400, 1400), (255, 255, 255, 255))
+        x = (1400 - im.width) // 2
+        y = (1400 - im.height) // 2
+        canvas.alpha_composite(im, (x, y))
+        out = io.BytesIO()
+        canvas.save(out, format="PNG")
+        out.seek(0)
+        out.name = "reference_product.png"
+        return out
+    except Exception:
+        return None
+
+
+def generate_ai_image_from_reference(api_key: str, photo_prompt: str, product_title: str, product_desc: str, reference_url: str) -> bytes | None:
+    """Edit the selected AliExpress image as a visual reference instead of generating from text only.
+    This gives much better product fidelity, but the user should still verify every image before Etsy upload.
+    """
+    original_bytes = download_image(reference_url)
+    if not original_bytes:
+        st.error("Impossible de télécharger l’image sélectionnée.")
+        return None
+
+    image_file = prepare_image_for_edit(original_bytes)
+    if not image_file:
+        st.error("Impossible de préparer l’image pour l’édition IA.")
+        return None
+
     client = OpenAI(api_key=api_key)
-    final_prompt = f"""You are generating an Etsy-ready luxury ecommerce image.
+    final_prompt = f"""Edit the provided reference product photo into an Etsy-ready luxury ecommerce image.
 
-Product title: {product_title}
-Product details: {product_desc[:1200]}
+ABSOLUTE PRIORITY: preserve the exact product from the reference image.
+- Keep the same garment/product design, shape, color, fabric, texture, embroidery, print, pattern, lace, seams, buttons, straps, closures, decorations and proportions.
+- Do not replace the product with a different product.
+- Do not invent new colors, flowers, patterns, accessories, or design details.
+- If the reference image is a flat-lay product photo, keep the product visually identical and improve the presentation.
+- If a model is added or changed, the product worn by the model must still match the reference product as closely as possible.
 
-Custom image instructions:
+Product title/context: {product_title}
+Product details/context: {product_desc[:1000]}
+
+User image style instructions:
 {photo_prompt}
 
-Critical rule: the product must stay visually faithful to the original product information. Do not invent a different product, color, shape, material, pattern, closure, decoration, or accessory. Output a square 1:1 ultra-realistic professional image with no text, no logo and no watermark."""
+Output requirements: square 1:1, ultra realistic, professional, luxury ecommerce style, no text, no logo, no watermark, Etsy-ready.
+"""
     try:
-        result = client.images.generate(
+        result = client.images.edit(
             model="gpt-image-1",
+            image=image_file,
             prompt=final_prompt,
             size="1024x1024",
             n=1,
@@ -457,7 +498,7 @@ with left:
         st.download_button("⬇️ Télécharger mes prompts JSON", json.dumps(st.session_state.saved_prompts, ensure_ascii=False, indent=2), "prompts_etsy.json", "application/json")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="card"><h3><span class="step-badge">3</span>Photos AliExpress et prompt image</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><h3><span class="step-badge">3</span>Photos AliExpress et édition IA fidèle</h3>', unsafe_allow_html=True)
     images = st.session_state.product.get("images", []) or []
     if images:
         st.caption(f"{len(images)} image(s) trouvée(s). Sélectionne celles que tu veux garder ou transformer.")
@@ -486,23 +527,26 @@ with left:
     )
     col_img1, col_img2 = st.columns(2)
     with col_img1:
-        nb_images = st.slider("Nombre de nouvelles photos IA", 1, 4, 1)
+        nb_images = st.slider("Nombre de photos IA à générer depuis les images sélectionnées", 1, 4, 1)
     with col_img2:
-        st.caption("La génération IA utilise la clé OpenAI. Pour garder le produit identique, vérifie toujours les images avant de les publier sur Etsy.")
-    if st.button("✨ Générer nouvelles photos IA", use_container_width=True):
+        st.caption("Cette version utilise les photos sélectionnées comme référence visuelle. C’est beaucoup plus fidèle qu’une génération texte seule, mais vérifie toujours avant Etsy.")
+    if st.button("✨ Générer nouvelles photos IA à partir des images sélectionnées", use_container_width=True):
         if not openai_key:
             st.error("Ajoute ta clé OpenAI d’abord.")
+        elif not selected_urls:
+            st.error("Sélectionne au moins une photo AliExpress à utiliser comme référence.")
         elif not product.get("title") and not product.get("description"):
             st.error("Ajoute ou extrais les infos produit avant de générer les photos.")
         else:
             st.session_state.generated_images = []
-            with st.spinner("Génération des photos IA..."):
-                for _ in range(nb_images):
-                    img_data = generate_ai_image(openai_key, photo_prompt, product.get("title",""), product.get("description",""))
+            urls_to_edit = selected_urls[:nb_images]
+            with st.spinner("Génération des photos IA à partir des images sélectionnées..."):
+                for ref_url in urls_to_edit:
+                    img_data = generate_ai_image_from_reference(openai_key, photo_prompt, product.get("title",""), product.get("description",""), ref_url)
                     if img_data:
                         st.session_state.generated_images.append(img_data)
             if st.session_state.generated_images:
-                st.success("Photos générées.")
+                st.success("Photos générées à partir des images sélectionnées. Vérifie bien que le produit est fidèle avant publication.")
                 st.rerun()
 
     if st.session_state.generated_images:

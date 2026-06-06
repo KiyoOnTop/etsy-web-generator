@@ -1,21 +1,7 @@
-# Etsy SEO Generator V15 - Page d'accueil unique
+# Etsy Generator Pro V17 — Photos IA avec référence
 
-Interface française, génération Etsy en anglais.
+Interface française, génération de fiches Etsy en anglais.
 
-## Installation Streamlit
-Envoyer sur GitHub :
-- app.py
-- requirements.txt
-- README.md
+Nouveauté V17 : les photos IA sont générées à partir des photos AliExpress sélectionnées comme référence visuelle, au lieu d'une génération texte seule. Cela aide à garder le produit beaucoup plus proche de l'original.
 
-Puis Streamlit redéploie automatiquement.
-
-## Secrets recommandés
-Dans Streamlit > Manage app > Settings > Secrets :
-
-```toml
-OPENAI_API_KEY = "ta_cle_openai"
-SCRAPERAPI_KEY = "ta_cle_scraperapi"
-```
-
-ScraperAPI est optionnel mais aide pour AliExpress.
+⚠️ Important : vérifie toujours que les photos générées représentent fidèlement le produit réel avant de les utiliser sur Etsy.
