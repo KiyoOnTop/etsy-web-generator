@@ -1,8 +1,11 @@
-# Etsy Web Generator V20 - Better AliExpress Images
+# Etsy Generator V21 - Extraction photos AliExpress renforcée
 
-Interface française, génération Etsy en anglais, extraction améliorée des images AliExpress.
+Cette version améliore l'extraction des images AliExpress avec plusieurs méthodes :
+- URL normale
+- URL mobile AliExpress
+- ScraperAPI sans render puis avec render
+- Regex sur images alicdn/kf
+- Extraction depuis JSON embarqué
+- Mode manuel pour coller des URLs d'images si AliExpress bloque
 
-Déploiement Streamlit :
-- app.py
-- requirements.txt
-- README.md
+Interface en français, résultats Etsy en anglais.
