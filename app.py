@@ -55,6 +55,7 @@ ss_default("extracted", {"title":"", "description":"", "price":"", "images":[]})
 ss_default("result", None)
 ss_default("debug_images", [])
 ss_default("selected_photo_urls", [])
+ss_default("selected_photo_configs", [])
 ss_default("generated_photos", [])
 
 # ---------- Helpers ----------
@@ -472,15 +473,26 @@ with col1:
     imgs = st.session_state.extracted.get("images", [])
     selected = []
     if imgs:
-        st.caption("Sélectionne uniquement les vraies photos produit. Évite tableaux de tailles, logos et infographies.")
+        st.caption("Sélectionne uniquement les vraies photos produit. Pour chaque photo, choisis combien de versions générer et la vue à respecter.")
+        selected_configs = []
         cols = st.columns(2)
         for i,u in enumerate(imgs[:24]):
             with cols[i%2]:
                 st.image(u, use_container_width=True)
-                if st.checkbox("Sélectionner", key=f"imgsel_{i}", value=i<4):
+                checked = st.checkbox("Utiliser cette photo", key=f"imgsel_{i}", value=i<2)
+                if checked:
+                    c1, c2 = st.columns([1, 1])
+                    with c1:
+                        count_i = st.number_input("Nombre", min_value=1, max_value=6, value=1, step=1, key=f"img_count_{i}")
+                    with c2:
+                        view_i = st.selectbox("Vue", ["Automatique", "Face", "Dos", "Latérale", "Gros plan", "Flat lay"], key=f"img_view_{i}")
                     selected.append(u)
+                    selected_configs.append({"url": u, "count": int(count_i), "view": view_i, "index": i + 1})
         st.session_state.selected_photo_urls = selected
+        st.session_state.selected_photo_configs = selected_configs
         if selected:
+            total = sum(x["count"] for x in selected_configs)
+            st.success(f"{len(selected)} photo(s) sélectionnée(s), {total} image(s) premium demandée(s).")
             st.download_button("Télécharger les photos sélectionnées (ZIP)", data=make_zip(selected), file_name="photos_aliexpress.zip", mime="application/zip", use_container_width=True)
     else:
         st.info("Aucune photo affichée pour le moment.")
@@ -488,30 +500,41 @@ with col1:
 
     st.markdown('<div class="card"><div class="step"><span class="badge">3</span>✨ Génération photos premium</div>', unsafe_allow_html=True)
     st.caption("Utilise les photos sélectionnées comme référence. Le produit doit rester identique, seul le décor/mannequin/lumière change.")
-    photo_style = st.selectbox("Style photo", ["Luxury Interior", "Romantic Boutique", "Fashion Editorial", "Clean Ecommerce"], index=0)
-    photo_view = st.selectbox("Vue à respecter", ["Automatique", "Face", "Dos", "Latérale", "Gros plan", "Flat lay"], index=0)
+    photo_style = st.selectbox("Style photo global", ["Luxury Interior", "Romantic Boutique", "Fashion Editorial", "Clean Ecommerce"], index=0)
     change_model = st.checkbox("Changer le mannequin si présent", value=True)
-    photos_to_generate = st.slider("Nombre maximum de photos à générer", 1, 8, 2)
+    st.caption("Le nombre d'images et la vue se règlent maintenant sous chaque photo sélectionnée.")
     with st.expander("Modifier le prompt photo"):
         photo_prompt_base = st.text_area("Prompt photo personnalisé", value=PHOTO_PROMPT_DEFAULT, height=360)
+
+    configs = st.session_state.get("selected_photo_configs", [])
+    if configs:
+        total_requested = sum(x.get("count", 1) for x in configs)
+        st.info(f"Plan de génération : {len(configs)} photo(s) source sélectionnée(s) → {total_requested} photo(s) premium.")
+        for cfg in configs:
+            st.caption(f"Photo {cfg.get('index')} : {cfg.get('count',1)} version(s), vue {cfg.get('view','Automatique')}")
+
     if st.button("✨ Générer les photos premium", type="primary", use_container_width=True):
         if not openai_key:
             st.error("Ajoute ta clé OpenAI dans la barre de gauche.")
-        elif not st.session_state.selected_photo_urls:
-            st.error("Sélectionne au moins une photo AliExpress.")
+        elif not configs:
+            st.error("Sélectionne au moins une photo AliExpress et choisis ses options.")
         else:
-            prompt_final = build_photo_prompt(photo_prompt_base, photo_style, photo_view, change_model)
-            todo = st.session_state.selected_photo_urls[:photos_to_generate]
+            jobs = []
+            for cfg in configs:
+                for n in range(int(cfg.get("count", 1))):
+                    jobs.append({"url": cfg["url"], "view": cfg.get("view", "Automatique"), "source_index": cfg.get("index", 0), "variant": n + 1})
             generated = []
             prog = st.progress(0)
-            for idx, img_url in enumerate(todo, start=1):
+            for idx, job in enumerate(jobs, start=1):
                 try:
-                    with st.spinner(f"Génération photo {idx}/{len(todo)}..."):
-                        out = generate_premium_photo(openai_key, img_url, prompt_final)
-                        generated.append({"bytes": out, "source": img_url, "style": photo_style, "view": photo_view})
+                    prompt_final = build_photo_prompt(photo_prompt_base, photo_style, job["view"], change_model)
+                    prompt_final += f"\n\nGenerate variant {job['variant']} for source photo {job['source_index']}. Keep the same requested view: {job['view']}."
+                    with st.spinner(f"Génération {idx}/{len(jobs)} — photo {job['source_index']} vue {job['view']}..."):
+                        out = generate_premium_photo(openai_key, job["url"], prompt_final)
+                        generated.append({"bytes": out, "source": job["url"], "style": photo_style, "view": job["view"], "source_index": job["source_index"], "variant": job["variant"]})
                 except Exception as e:
-                    st.error(f"Erreur photo {idx}: {e}")
-                prog.progress(idx / len(todo))
+                    st.error(f"Erreur génération {idx}: {e}")
+                prog.progress(idx / len(jobs))
             if generated:
                 st.session_state.generated_photos = generated
                 st.success(f"{len(generated)} photo(s) premium générée(s).")
@@ -523,6 +546,7 @@ with col1:
         for i,it in enumerate(gen):
             with gcols[i%2]:
                 st.image(it["bytes"], use_container_width=True)
+                st.caption(f"Source {it.get('source_index','?')} • Vue {it.get('view','?')} • Variante {it.get('variant','?')}")
         st.download_button("Télécharger les photos premium (ZIP)", data=make_generated_zip(gen), file_name="photos_premium_etsy.zip", mime="application/zip", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
