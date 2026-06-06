@@ -2,7 +2,9 @@ import io
 import json
 import re
 import zipfile
+import base64
 from urllib.parse import urlparse
+from PIL import Image
 
 import requests
 import streamlit as st
@@ -52,6 +54,8 @@ def ss_default(key, value):
 ss_default("extracted", {"title":"", "description":"", "price":"", "images":[]})
 ss_default("result", None)
 ss_default("debug_images", [])
+ss_default("selected_photo_urls", [])
+ss_default("generated_photos", [])
 
 # ---------- Helpers ----------
 def clean_text(text: str) -> str:
@@ -304,8 +308,120 @@ def make_zip(urls):
     mem.seek(0)
     return mem.getvalue()
 
+
+def image_bytes_to_png_bytes(content: bytes):
+    """Convertit une image téléchargée en PNG carré compatible édition IA."""
+    try:
+        img = Image.open(io.BytesIO(content)).convert("RGBA")
+        # Resize without cropping too aggressively: keep full product visible on square canvas
+        max_side = max(img.size)
+        canvas = Image.new("RGBA", (max_side, max_side), (255, 255, 255, 0))
+        x = (max_side - img.size[0]) // 2
+        y = (max_side - img.size[1]) // 2
+        canvas.paste(img, (x, y), img if img.mode == "RGBA" else None)
+        canvas = canvas.convert("RGB").resize((1024, 1024))
+        out = io.BytesIO()
+        canvas.save(out, format="PNG")
+        out.seek(0)
+        return out.getvalue()
+    except Exception:
+        return content
+
+PHOTO_PROMPT_DEFAULT = """OBJECTIVE:
+Create a realistic, professional, luxury ecommerce photo from the reference image.
+
+ABSOLUTE PRODUCT RULES:
+- Keep the product exactly identical to the original image.
+- Do not change the product shape, color, fabric, lace, pattern, stitching, seams, print, buttons, ribbons, accessories, proportions, or structure.
+- Do not redesign the product.
+- Do not invent new product details.
+- The product must look like the same real item the customer will receive.
+
+WHAT MAY CHANGE:
+- Background
+- Decor
+- Lighting
+- Overall environment
+- Model appearance if a model is present, while keeping the exact same product and view direction
+
+VIEW / ANGLE RULES:
+- Preserve the original viewing angle and product orientation.
+- If the reference image is a back view, the result must show the model/product from the back.
+- If the reference image is a front view, the result must show the model/product from the front.
+- If the reference image is a side view, the result must show the model/product from the side.
+- Never turn a back-view product into a front-view product.
+
+STYLE:
+- Ultra realistic luxury fashion ecommerce photography.
+- Natural human model, realistic skin, realistic proportions.
+- Elegant premium boutique interior, luxury apartment, Parisian room, or high-end hotel suite.
+- Soft natural daylight or professional studio lighting.
+- No artificial AI look, no plastic skin, no fantasy style.
+- Etsy-ready premium product photo.
+- Square 1:1 composition.
+- No text, no logo, no watermark."""
+
+def build_photo_prompt(base_prompt: str, style: str, view: str, change_model: bool):
+    view_map = {
+        "Automatique": "Analyze the reference image and preserve the exact original view direction.",
+        "Face": "The generated image must be a FRONT VIEW. Show the product from the front.",
+        "Dos": "The generated image must be a BACK VIEW. Show the product from the back. Do not show the front.",
+        "Latérale": "The generated image must be a SIDE VIEW. Show the product from the side.",
+        "Gros plan": "Create a close-up product detail shot while preserving exact details.",
+        "Flat lay": "Create a flat lay product photo only if the reference is flat lay; otherwise preserve the original view.",
+    }
+    style_map = {
+        "Luxury Interior": "Use an elegant luxury interior, Parisian apartment, soft warm daylight, premium boutique atmosphere.",
+        "Romantic Boutique": "Use a romantic boutique atmosphere with soft flowers, warm neutral tones, elegant decor.",
+        "Fashion Editorial": "Use high-end fashion editorial photography, realistic magazine style, premium lighting.",
+        "Clean Ecommerce": "Use a clean premium ecommerce studio background, minimal decor, very realistic product focus.",
+    }
+    model_rule = "You may use a different realistic professional model if a model is present, but the product must remain exactly identical." if change_model else "Do not change the model/person; only improve background, lighting, and decor."
+    return f"""{base_prompt}
+
+SELECTED STYLE:
+{style_map.get(style, style)}
+
+SELECTED VIEW:
+{view_map.get(view, view)}
+
+MODEL RULE:
+{model_rule}
+
+Final reminder: edit the reference image; do not create a different product."""
+
+def generate_premium_photo(api_key: str, image_url: str, prompt: str):
+    content = download_image(image_url)
+    if not content:
+        raise RuntimeError("Impossible de télécharger l'image sélectionnée.")
+    png = image_bytes_to_png_bytes(content)
+    client = OpenAI(api_key=api_key)
+    image_file = io.BytesIO(png)
+    image_file.name = "reference.png"
+    # Uses image editing with the selected AliExpress photo as visual reference.
+    resp = client.images.edit(
+        model="gpt-image-1",
+        image=image_file,
+        prompt=prompt,
+        size="1024x1024",
+        quality="high",
+        n=1,
+    )
+    b64 = resp.data[0].b64_json
+    return base64.b64decode(b64)
+
+def make_generated_zip(items):
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as z:
+        if not items:
+            z.writestr("aucune_photo_generee.txt", "Aucune photo premium n'a encore ete generee.")
+        for i, it in enumerate(items, start=1):
+            z.writestr(f"photo_premium_{i}.png", it["bytes"])
+    mem.seek(0)
+    return mem.getvalue()
+
 # ---------- UI ----------
-st.markdown('<div class="hero"><h1>🛍️ Générateur de Fiches Etsy Premium</h1><p>Extraction AliExpress + photos produit + fiche Etsy SEO en anglais.</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="hero"><h1>🛍️ Générateur de Fiches Etsy Premium</h1><p>Extraction AliExpress + photos produit + génération photos premium + fiche Etsy SEO en anglais.</p></div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.subheader("🔐 Clés API")
@@ -354,23 +470,64 @@ with col1:
 
     st.markdown('<div class="card"><div class="step"><span class="badge">2</span>Photos extraites</div>', unsafe_allow_html=True)
     imgs = st.session_state.extracted.get("images", [])
+    selected = []
     if imgs:
-        st.caption("Sélectionne les photos à télécharger ou à utiliser plus tard.")
-        selected = []
+        st.caption("Sélectionne uniquement les vraies photos produit. Évite tableaux de tailles, logos et infographies.")
         cols = st.columns(2)
         for i,u in enumerate(imgs[:24]):
             with cols[i%2]:
                 st.image(u, use_container_width=True)
-                if st.checkbox("Sélectionner", key=f"imgsel_{i}", value=i<8):
+                if st.checkbox("Sélectionner", key=f"imgsel_{i}", value=i<4):
                     selected.append(u)
+        st.session_state.selected_photo_urls = selected
         if selected:
             st.download_button("Télécharger les photos sélectionnées (ZIP)", data=make_zip(selected), file_name="photos_aliexpress.zip", mime="application/zip", use_container_width=True)
     else:
         st.info("Aucune photo affichée pour le moment.")
     st.markdown('</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="card"><div class="step"><span class="badge">3</span>✨ Génération photos premium</div>', unsafe_allow_html=True)
+    st.caption("Utilise les photos sélectionnées comme référence. Le produit doit rester identique, seul le décor/mannequin/lumière change.")
+    photo_style = st.selectbox("Style photo", ["Luxury Interior", "Romantic Boutique", "Fashion Editorial", "Clean Ecommerce"], index=0)
+    photo_view = st.selectbox("Vue à respecter", ["Automatique", "Face", "Dos", "Latérale", "Gros plan", "Flat lay"], index=0)
+    change_model = st.checkbox("Changer le mannequin si présent", value=True)
+    photos_to_generate = st.slider("Nombre maximum de photos à générer", 1, 8, 2)
+    with st.expander("Modifier le prompt photo"):
+        photo_prompt_base = st.text_area("Prompt photo personnalisé", value=PHOTO_PROMPT_DEFAULT, height=360)
+    if st.button("✨ Générer les photos premium", type="primary", use_container_width=True):
+        if not openai_key:
+            st.error("Ajoute ta clé OpenAI dans la barre de gauche.")
+        elif not st.session_state.selected_photo_urls:
+            st.error("Sélectionne au moins une photo AliExpress.")
+        else:
+            prompt_final = build_photo_prompt(photo_prompt_base, photo_style, photo_view, change_model)
+            todo = st.session_state.selected_photo_urls[:photos_to_generate]
+            generated = []
+            prog = st.progress(0)
+            for idx, img_url in enumerate(todo, start=1):
+                try:
+                    with st.spinner(f"Génération photo {idx}/{len(todo)}..."):
+                        out = generate_premium_photo(openai_key, img_url, prompt_final)
+                        generated.append({"bytes": out, "source": img_url, "style": photo_style, "view": photo_view})
+                except Exception as e:
+                    st.error(f"Erreur photo {idx}: {e}")
+                prog.progress(idx / len(todo))
+            if generated:
+                st.session_state.generated_photos = generated
+                st.success(f"{len(generated)} photo(s) premium générée(s).")
+                st.rerun()
+    gen = st.session_state.generated_photos
+    if gen:
+        st.markdown("**Photos premium générées**")
+        gcols = st.columns(2)
+        for i,it in enumerate(gen):
+            with gcols[i%2]:
+                st.image(it["bytes"], use_container_width=True)
+        st.download_button("Télécharger les photos premium (ZIP)", data=make_generated_zip(gen), file_name="photos_premium_etsy.zip", mime="application/zip", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 with col2:
-    st.markdown('<div class="card"><div class="step"><span class="badge">3</span>Informations produit</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><div class="step"><span class="badge">4</span>Informations produit</div>', unsafe_allow_html=True)
     ext = st.session_state.extracted
     title = st.text_input("Titre fournisseur / AliExpress", value=ext.get("title", ""))
     supplier_price = st.text_input("Prix fournisseur détecté", value=ext.get("price", ""))
@@ -380,7 +537,7 @@ with col2:
     st.metric("Prix conseillé estimé", f"{sell_price} {currency}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="card"><div class="step"><span class="badge">4</span>SEO & Prompt</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><div class="step"><span class="badge">5</span>SEO & Prompt</div>', unsafe_allow_html=True)
     category = st.selectbox("Catégorie / type de boutique", ["Corsets / Lingerie / Mode alternative", "Bijoux / Accessoires", "Décoration maison", "Animaux / Pet lovers", "Beauté / Bien-être", "Mode générale", "Prompt personnalisé"])
     default_prompts = {
         "Corsets / Lingerie / Mode alternative": "I run an Etsy store specialized in corsets, lingerie-inspired fashion, gothic fashion, renaissance fashion, burlesque fashion, shapewear and alternative fashion. Focus on style, confidence, giftability, comfort, outfit ideas and conversion-focused Etsy SEO.",
@@ -399,7 +556,7 @@ with col2:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
-    st.markdown('<div class="card"><div class="step"><span class="badge">5</span>Générer la fiche Etsy</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><div class="step"><span class="badge">6</span>Générer la fiche Etsy</div>', unsafe_allow_html=True)
     if st.button("Générer la fiche complète", type="primary", use_container_width=True):
         if not openai_key:
             st.error("Ajoute ta clé OpenAI dans la barre de gauche.")

@@ -1,11 +1,19 @@
-# Etsy Generator V21 - Extraction photos AliExpress renforcée
+# Générateur Etsy Premium V22
 
-Cette version améliore l'extraction des images AliExpress avec plusieurs méthodes :
-- URL normale
-- URL mobile AliExpress
-- ScraperAPI sans render puis avec render
-- Regex sur images alicdn/kf
-- Extraction depuis JSON embarqué
-- Mode manuel pour coller des URLs d'images si AliExpress bloque
+Version complète avec :
+- extraction AliExpress améliorée,
+- vraies photos produit AliExpress,
+- sélection des photos,
+- génération de photos premium avec prompt modifiable,
+- choix du style photo,
+- choix de la vue : automatique, face, dos, latérale, gros plan, flat lay,
+- génération de fiche Etsy SEO en anglais.
 
-Interface en français, résultats Etsy en anglais.
+## Secrets Streamlit recommandés
+
+```toml
+OPENAI_API_KEY = "ta_cle_openai"
+SCRAPERAPI_KEY = "ta_cle_scraperapi"
+```
+
+Important : vérifie toujours que les images générées restent fidèles au produit réel vendu.
