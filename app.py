@@ -7,56 +7,195 @@ from bs4 import BeautifulSoup
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="Générateur Etsy SEO V12", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Générateur Etsy SEO V13", page_icon="🛍️", layout="wide")
 
 # ---------------- STYLE ----------------
 st.markdown("""
 <style>
-:root { --primary:#ff4b4b; --soft:#fff5f5; --border:#e5e7eb; --text:#111827; }
-.stApp { background:#f7f8fb; color:var(--text); }
-.block-container { padding-top:2rem; max-width:1200px; }
-.main-card { background:white; border:1px solid var(--border); border-radius:20px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.05); margin-bottom:18px; }
-.hero { background:linear-gradient(135deg,#ffffff,#fff1f1); border:1px solid #f1d4d4; border-radius:24px; padding:30px; margin-bottom:24px; }
-.hero h1 { margin:0; font-size:34px; }
-.hero p { color:#4b5563; font-size:16px; }
-.badge { display:inline-block; background:#ffe7e7; color:#b91c1c; padding:7px 12px; border-radius:999px; font-weight:700; font-size:13px; margin-right:8px; }
-.helpbox { background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; padding:15px; color:#1e3a8a; }
-.warnbox { background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:15px; color:#9a3412; }
-.successbox { background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:15px; color:#065f46; }
-.big-result { background:white; border:1px solid var(--border); border-radius:16px; padding:18px; margin:10px 0; }
-.small-muted { color:#6b7280; font-size:14px; }
+/* ---------------- THEME GLOBAL CLAIR ET LISIBLE ---------------- */
+:root {
+  --primary:#B45309;
+  --primary2:#92400E;
+  --accent:#D97706;
+  --soft:#FFF7ED;
+  --soft2:#FFFBEB;
+  --border:#D6D3D1;
+  --text:#111827;
+  --muted:#4B5563;
+  --card:#FFFFFF;
+  --bg:#F8FAFC;
+}
 
-/* Corrections lisibilité Streamlit */
-.stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #d1d5db; }
-.stTabs [data-baseweb="tab"] {
-    background: #ffffff !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 12px 12px 0 0 !important;
-    padding: 10px 16px !important;
-    color: #111827 !important;
-    font-weight: 700 !important;
+html, body, .stApp, [data-testid="stAppViewContainer"] {
+  background: var(--bg) !important;
+  color: var(--text) !important;
 }
-.stTabs [data-baseweb="tab"] p,
-.stTabs [data-baseweb="tab"] span,
-.stTabs [data-baseweb="tab"] div {
-    color: #111827 !important;
-    font-weight: 700 !important;
+
+.block-container {
+  padding-top: 1.5rem !important;
+  padding-bottom: 3rem !important;
+  max-width: 1180px !important;
 }
-.stTabs [aria-selected="true"] {
-    background: #fff1f1 !important;
-    border-bottom: 3px solid #ff4b4b !important;
+
+/* Tous les textes en foncé par défaut */
+h1, h2, h3, h4, h5, h6, p, label, span, div, li, .stMarkdown, .stText {
+  color: var(--text) !important;
 }
-label, .stMarkdown, .stText, p, span, div { color: #111827; }
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] div {
-    color: #111827 !important;
-}
+
+/* Sidebar claire */
 [data-testid="stSidebar"] {
-    background: #ffffff !important;
+  background: #FFFFFF !important;
+  border-right: 1px solid var(--border) !important;
+}
+[data-testid="stSidebar"] * {
+  color: var(--text) !important;
 }
 
+/* Cartes */
+.main-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 10px 25px rgba(15,23,42,.06);
+  margin-bottom: 18px;
+}
+.hero {
+  background: linear-gradient(135deg,#FFFFFF,#FFF7ED);
+  border: 1px solid #FDBA74;
+  border-radius: 24px;
+  padding: 30px;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 30px rgba(15,23,42,.05);
+}
+.hero h1 { margin:0; font-size:34px; color:#111827 !important; }
+.hero p { color:#374151 !important; font-size:16px; }
+.badge {
+  display:inline-block;
+  background:#FFEDD5;
+  color:#9A3412 !important;
+  padding:7px 12px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:13px;
+  margin-right:8px;
+}
+.helpbox { background:#EFF6FF; border:1px solid #BFDBFE; border-radius:14px; padding:15px; color:#1E3A8A !important; }
+.warnbox { background:#FFF7ED; border:1px solid #FED7AA; border-radius:14px; padding:15px; color:#9A3412 !important; }
+.successbox { background:#ECFDF5; border:1px solid #A7F3D0; border-radius:14px; padding:15px; color:#065F46 !important; }
+.small-muted { color:#6B7280 !important; font-size:14px; }
+
+/* Inputs visibles */
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea,
+textarea,
+input {
+  background: #FFFFFF !important;
+  color: #111827 !important;
+  border: 1px solid #9CA3AF !important;
+  border-radius: 12px !important;
+}
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important;
+  opacity: 1 !important;
+}
+
+/* Selectbox fermé */
+.stSelectbox div[data-baseweb="select"],
+[data-baseweb="select"] {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #9CA3AF !important;
+  border-radius: 12px !important;
+}
+.stSelectbox div[data-baseweb="select"] *,
+[data-baseweb="select"] * {
+  color: #111827 !important;
+  fill: #111827 !important;
+}
+
+/* Selectbox ouvert / menu déroulant */
+div[data-baseweb="popover"],
+div[data-baseweb="popover"] *,
+ul[role="listbox"],
+div[role="listbox"] {
+  background: #FFFFFF !important;
+  color: #111827 !important;
+}
+ul[role="listbox"] li,
+div[role="option"],
+li[role="option"] {
+  background: #FFFFFF !important;
+  color: #111827 !important;
+  font-weight: 600 !important;
+}
+ul[role="listbox"] li:hover,
+div[role="option"]:hover,
+li[role="option"]:hover,
+[aria-selected="true"] {
+  background: #FFEDD5 !important;
+  color: #111827 !important;
+}
+
+/* Tabs très visibles */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 10px;
+  border-bottom: 1px solid #CBD5E1;
+}
+.stTabs [data-baseweb="tab"] {
+  background: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 12px 18px !important;
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+.stTabs [data-baseweb="tab"] * {
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: #FFEDD5 !important;
+  border-bottom: 4px solid var(--accent) !important;
+}
+
+/* Boutons */
+.stButton button,
+.stDownloadButton button {
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+}
+.stButton button[kind="primary"] {
+  background: var(--accent) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--accent) !important;
+}
+.stButton button[kind="primary"] * { color:#FFFFFF !important; }
+
+/* Radio catégories visibles */
+.stRadio label {
+  background: #FFFFFF !important;
+  border: 1px solid #D1D5DB !important;
+  border-radius: 12px !important;
+  padding: 8px 10px !important;
+  margin-bottom: 6px !important;
+}
+.stRadio label * { color:#111827 !important; }
+
+/* Code/resultats */
+.stCodeBlock, pre, code {
+  background: #F9FAFB !important;
+  color: #111827 !important;
+  border: 1px solid #E5E7EB !important;
+  border-radius: 12px !important;
+}
+
+/* Alertes */
+.stAlert * { color: #111827 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -286,7 +425,7 @@ with st.sidebar:
 # ---------------- HEADER ----------------
 st.markdown("""
 <div class="hero">
-  <h1>🛍️ Générateur Etsy SEO V12</h1>
+  <h1>🛍️ Générateur Etsy SEO V13</h1>
   <p>Interface en français. Les titres, descriptions et tags Etsy sont générés en anglais pour le SEO.</p>
   <span class="badge">Extraction rapide</span><span class="badge">Prompts sauvegardables</span><span class="badge">Sans photos</span>
 </div>
@@ -346,7 +485,7 @@ with tab_seo:
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.subheader("🎯 Étape 2 — Choisis ou modifie ta stratégie SEO")
 
-    category = st.selectbox("Catégorie / type de boutique", list(CATEGORY_PROMPTS.keys()))
+    category = st.radio("Catégorie / type de boutique", list(CATEGORY_PROMPTS.keys()), horizontal=False)
     default_prompt = CATEGORY_PROMPTS.get(category, DEFAULT_CORSET_PROMPT)
 
     if "current_prompt" not in st.session_state or st.session_state.get("last_category") != category:
@@ -356,7 +495,7 @@ with tab_seo:
     niche = st.text_input("Client cible / niche", placeholder="Exemple : gothic fashion, gift for women, home decor")
     seo_keywords = st.text_input("Mots-clés SEO à ajouter", placeholder="Exemple : gothic corset, waist trainer, renaissance outfit")
     competitor_text = st.text_area("Fiche concurrente / inspiration", height=100, placeholder="Optionnel : colle ici un titre ou une description concurrente. L'IA ne doit pas copier.")
-    tone = st.selectbox("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
+    tone = st.radio("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"], horizontal=True)
 
     st.markdown("### Prompt principal modifiable")
     st.session_state.current_prompt = st.text_area("Tu peux modifier ce prompt avant de générer", value=st.session_state.current_prompt, height=260)
