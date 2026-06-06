@@ -1,9 +1,13 @@
-# Etsy Product Listing Generator V9
+# Générateur Etsy SEO V10 Photos
 
-Interface en français, génération en anglais, prompts personnalisables et catégories sauvegardables pendant la session.
+Interface française, génération Etsy en anglais, prompts sauvegardables, extraction AliExpress et onglet Photos.
 
-## Déploiement
-Envoyer `app.py`, `requirements.txt`, `README.md` sur GitHub puis redémarrer Streamlit.
+## Nouveautés V10
+- Extraction des images AliExpress quand possible
+- Affichage et sélection des images
+- Export ZIP des photos originales
+- Génération de nouvelles images carrées 1:1 via OpenAI Images (`gpt-image-1`)
+- Prompt photo modifiable
 
 ## Secrets Streamlit recommandés
 ```toml

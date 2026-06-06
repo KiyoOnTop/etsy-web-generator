@@ -1,11 +1,16 @@
+import base64
+import io
 import json
 import re
+import zipfile
+from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="Générateur Etsy SEO V9", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Générateur Etsy SEO V10", page_icon="🛍️", layout="wide")
 
 # -------------------- STYLE --------------------
 st.markdown("""
@@ -18,6 +23,7 @@ st.markdown("""
     .note {background:#eff6ff; border-left:5px solid #3b82f6; padding:12px 14px; border-radius:12px; color:#1e3a8a !important;}
     .warning {background:#fff7ed; border-left:5px solid #f97316; padding:12px 14px; border-radius:12px; color:#7c2d12 !important;}
     .stButton>button {border-radius:12px; font-weight:700;}
+    .image-card {background:white; border:1px solid #dbe1ee; border-radius:16px; padding:12px; margin-bottom:12px;}
     textarea, input, .stSelectbox div[data-baseweb="select"] {background:white !important; color:#111827 !important;}
 </style>
 """, unsafe_allow_html=True)
@@ -35,6 +41,95 @@ SCRAPERAPI_SECRET = get_secret("SCRAPERAPI_KEY", "")
 def clean_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text or "").strip()
     return text[:9000]
+
+
+def extract_image_urls_from_html(html: str, base_url: str = ""):
+    """Récupère les meilleures URLs images visibles dans une page AliExpress."""
+    soup = BeautifulSoup(html, "html.parser")
+    urls = []
+
+    # OpenGraph / Twitter images
+    for meta in soup.find_all("meta"):
+        content = meta.get("content", "")
+        prop = (meta.get("property") or meta.get("name") or "").lower()
+        if content and ("image" in prop or "og:image" in prop):
+            urls.append(content)
+
+    # Images HTML classiques
+    for img in soup.find_all("img"):
+        for attr in ["src", "data-src", "data-lazy-src", "data-original"]:
+            val = img.get(attr)
+            if val:
+                urls.append(val)
+
+    # URLs d'images dans les scripts JSON
+    patterns = [
+        r'https?:\\/\\/[^"\\]+(?:alicdn|aliexpress)[^"\\]+?\\.(?:jpg|jpeg|png|webp)',
+        r'https?://[^"\'<> ]+(?:alicdn|aliexpress)[^"\'<> ]+?\.(?:jpg|jpeg|png|webp)',
+    ]
+    for pat in patterns:
+        for u in re.findall(pat, html, flags=re.IGNORECASE):
+            urls.append(u)
+
+    cleaned = []
+    seen = set()
+    for u in urls:
+        u = u.replace("\\/", "/").strip()
+        if u.startswith("//"):
+            u = "https:" + u
+        elif u.startswith("/") and base_url:
+            u = urljoin(base_url, u)
+        u = re.sub(r'_[0-9]+x[0-9]+[^./]*(?=\.)', '', u)
+        u = u.split('"')[0].split("'")[0]
+        if not u.startswith("http"):
+            continue
+        low = u.lower()
+        if not any(ext in low for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+            continue
+        if any(bad in low for bad in ["avatar", "logo", "icon", "sprite", "banner"]):
+            continue
+        if u not in seen:
+            seen.add(u)
+            cleaned.append(u)
+    return cleaned[:12]
+
+
+def download_image_bytes(url: str):
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.aliexpress.com/"}
+    r = requests.get(url, headers=headers, timeout=25)
+    r.raise_for_status()
+    return r.content
+
+
+def images_zip(image_items, prefix="etsy_images"):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+        for i, item in enumerate(image_items, start=1):
+            data = item.get("bytes") if isinstance(item, dict) else None
+            if not data:
+                continue
+            z.writestr(f"{prefix}_{i:02d}.png", data)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def remake_images_with_openai(api_key: str, selected_urls, prompt: str, max_images: int = 3):
+    """Crée des images carrées 1:1 à partir des photos sélectionnées. Nécessite l'API Images OpenAI."""
+    client = OpenAI(api_key=api_key)
+    results = []
+    for idx, url in enumerate(selected_urls[:max_images], start=1):
+        original = download_image_bytes(url)
+        image_file = io.BytesIO(original)
+        image_file.name = f"source_{idx}.png"
+        response = client.images.edit(
+            model="gpt-image-1",
+            image=image_file,
+            prompt=prompt,
+            size="1024x1024",
+        )
+        b64 = response.data[0].b64_json
+        results.append({"name": f"etsy_luxury_photo_{idx:02d}.png", "bytes": base64.b64decode(b64)})
+    return results
 
 def fetch_url(url: str, scraper_key: str = ""):
     headers = {
@@ -96,7 +191,8 @@ def extract_product_from_html(html: str):
 
     title = clean_text(title.replace("| AliExpress", "").replace("- AliExpress", ""))
     description = clean_text("\n".join(desc_parts))
-    return {"title": title, "description": description, "price": clean_text(price)}
+    images = extract_image_urls_from_html(html)
+    return {"title": title, "description": description, "price": clean_text(price), "images": images}
 
 def recommended_price(cost, shipping, margin_pct, fees_pct):
     denominator = 1 - (margin_pct / 100) - (fees_pct / 100)
@@ -138,7 +234,7 @@ if "saved_prompts" not in st.session_state:
 if "main_prompt" not in st.session_state:
     st.session_state["main_prompt"] = DEFAULT_MAIN_PROMPT
 if "extracted" not in st.session_state:
-    st.session_state["extracted"] = {"title":"", "description":"", "price":""}
+    st.session_state["extracted"] = {"title":"", "description":"", "price":"", "images": []}
 
 # -------------------- SIDEBAR --------------------
 with st.sidebar:
@@ -158,11 +254,11 @@ st.markdown("""
 <div class="hero">
 <h1>🛍️ Générateur Etsy SEO</h1>
 <p>Interface en français. Les titres, descriptions et tags générés restent en anglais pour le SEO Etsy.</p>
-<span class="small-pill">URL AliExpress</span><span class="small-pill">Prompts sauvegardables</span><span class="small-pill">Catégories</span><span class="small-pill">Tags Etsy</span>
+<span class="small-pill">URL AliExpress</span><span class="small-pill">Prompts sauvegardables</span><span class="small-pill">Catégories</span><span class="small-pill">Tags Etsy</span><span class="small-pill">Photos Etsy</span>
 </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["1️⃣ Produit", "2️⃣ SEO & Prompts", "3️⃣ Résultat"])
+tab1, tab2, tab3, tab4 = st.tabs(["1️⃣ Produit", "2️⃣ SEO & Prompts", "3️⃣ Résultat", "4️⃣ Photos"])
 
 # -------------------- TAB PRODUCT --------------------
 with tab1:
@@ -188,12 +284,12 @@ with tab1:
                             st.rerun()
     with c2:
         if st.button("🧹 Vider le produit", use_container_width=True):
-            st.session_state["extracted"] = {"title":"", "description":"", "price":""}
+            st.session_state["extracted"] = {"title":"", "description":"", "price":"", "images": []}
             st.rerun()
     with c3:
         st.caption("ScraperAPI est recommandé si AliExpress bloque.")
 
-    extracted = st.session_state.get("extracted", {"title":"", "description":"", "price":""})
+    extracted = st.session_state.get("extracted", {"title":"", "description":"", "price":"", "images": []})
     left, right = st.columns([1.3, .85])
     with left:
         title = st.text_input("Titre fournisseur / AliExpress", value=extracted.get("title", ""), placeholder="Colle le titre du produit ici")
@@ -203,6 +299,92 @@ with tab1:
         cost_price = st.number_input("Prix d'achat du produit", min_value=0.0, value=5.0, step=0.5)
         st.metric("Prix conseillé estimé", f"{recommended_price(cost_price, shipping, margin, fees_pct)} {currency}")
         st.caption("Ce prix est recalculé avec ta marge, tes frais Etsy et la livraison estimée.")
+
+
+# -------------------- TAB PHOTOS --------------------
+with tab4:
+    st.markdown('<div class="card"><h3>📸 Photos produit Etsy</h3><p>Quand l’extraction AliExpress trouve des images, tu peux les afficher, les télécharger, ou demander une version carrée 1:1 plus professionnelle.</p></div>', unsafe_allow_html=True)
+    extracted_photos = st.session_state.get("extracted", {}).get("images", [])
+
+    st.markdown('<div class="warning">Important : vérifie que tu as le droit d’utiliser les images fournisseur. Les images générées doivent rester fidèles au vrai produit pour éviter une fiche trompeuse.</div>', unsafe_allow_html=True)
+
+    custom_image_prompt = st.text_area(
+        "Prompt de transformation photo",
+        value="Refais moi ces photos de manière professionnelle et luxueuse. Je veux que la femme qui porte ces vêtements soit différente. Garde le vêtement fidèle au produit original. Format carré 1:1, style photo studio premium, éclairage luxueux, fond élégant, rendu réaliste haute qualité.",
+        height=120,
+    )
+
+    manual_urls = st.text_area(
+        "URLs d’images à ajouter manuellement (optionnel, une par ligne)",
+        placeholder="https://...jpg\nhttps://...png",
+        height=85,
+    )
+    manual_list = [u.strip() for u in manual_urls.splitlines() if u.strip().startswith("http")]
+    all_photos = []
+    for u in extracted_photos + manual_list:
+        if u not in all_photos:
+            all_photos.append(u)
+
+    if not all_photos:
+        st.info("Aucune image extraite pour l’instant. Retourne dans l’onglet Produit, colle l’URL AliExpress, puis clique sur Extraire.")
+    else:
+        st.success(f"{len(all_photos)} image(s) détectée(s). Sélectionne celles à traiter.")
+        selected_urls = []
+        cols = st.columns(4)
+        for i, img_url in enumerate(all_photos):
+            with cols[i % 4]:
+                st.markdown('<div class="image-card">', unsafe_allow_html=True)
+                st.image(img_url, use_container_width=True)
+                if st.checkbox(f"Utiliser image {i+1}", value=i < 3, key=f"photo_select_{i}"):
+                    selected_urls.append(img_url)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        col_orig, col_ai = st.columns(2)
+        with col_orig:
+            if st.button("⬇️ Télécharger les photos originales sélectionnées", use_container_width=True):
+                originals = []
+                with st.spinner("Téléchargement des images originales..."):
+                    for i, u in enumerate(selected_urls, start=1):
+                        try:
+                            originals.append({"bytes": download_image_bytes(u)})
+                        except Exception as e:
+                            st.warning(f"Image {i} impossible à télécharger : {e}")
+                if originals:
+                    st.download_button(
+                        "📦 Télécharger le ZIP original",
+                        data=images_zip(originals, "photos_originales_aliexpress"),
+                        file_name="photos_originales_aliexpress.zip",
+                        mime="application/zip",
+                    )
+        with col_ai:
+            max_img = st.slider("Nombre max d’images IA à refaire", 1, 6, 3)
+            if st.button("✨ Refaire les photos en version Etsy luxe", type="primary", use_container_width=True):
+                if not openai_key:
+                    st.error("Ajoute ta clé OpenAI dans la barre de gauche.")
+                elif not selected_urls:
+                    st.error("Sélectionne au moins une image.")
+                else:
+                    with st.spinner("Création des nouvelles images 1:1... cela peut prendre un peu de temps."):
+                        try:
+                            remade = remake_images_with_openai(openai_key, selected_urls, custom_image_prompt, max_img)
+                            st.session_state["remade_images"] = remade
+                            st.success("Images générées !")
+                        except Exception as e:
+                            st.error(f"Génération image impossible : {e}")
+
+    remade_images = st.session_state.get("remade_images", [])
+    if remade_images:
+        st.markdown("### Images refaites prêtes pour Etsy")
+        cols = st.columns(3)
+        for i, item in enumerate(remade_images):
+            with cols[i % 3]:
+                st.image(item["bytes"], caption=item.get("name", f"Image {i+1}"), use_container_width=True)
+        st.download_button(
+            "📦 Télécharger les images refaites en ZIP",
+            data=images_zip(remade_images, "photos_etsy_luxe"),
+            file_name="photos_etsy_luxe.zip",
+            mime="application/zip",
+        )
 
 # -------------------- TAB SEO --------------------
 with tab2:
