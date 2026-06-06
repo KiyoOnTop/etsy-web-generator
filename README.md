@@ -1,11 +1,9 @@
-# Générateur Etsy SEO V8 — Interface plus lisible
+# Etsy Product Listing Generator V9
 
-Version avec interface française, résultats Etsy en anglais, design plus clair et meilleur contraste.
+Interface en français, génération en anglais, prompts personnalisables et catégories sauvegardables pendant la session.
 
 ## Déploiement
-1. Envoyer `app.py`, `requirements.txt`, `README.md` sur GitHub.
-2. Commit changes.
-3. Attendre la mise à jour Streamlit.
+Envoyer `app.py`, `requirements.txt`, `README.md` sur GitHub puis redémarrer Streamlit.
 
 ## Secrets Streamlit recommandés
 ```toml
