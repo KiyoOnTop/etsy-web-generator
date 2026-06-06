@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="Générateur Etsy SEO V11", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Générateur Etsy SEO V12", page_icon="🛍️", layout="wide")
 
 # ---------------- STYLE ----------------
 st.markdown("""
@@ -25,6 +25,38 @@ st.markdown("""
 .successbox { background:#ecfdf5; border:1px solid #a7f3d0; border-radius:14px; padding:15px; color:#065f46; }
 .big-result { background:white; border:1px solid var(--border); border-radius:16px; padding:18px; margin:10px 0; }
 .small-muted { color:#6b7280; font-size:14px; }
+
+/* Corrections lisibilité Streamlit */
+.stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #d1d5db; }
+.stTabs [data-baseweb="tab"] {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 10px 16px !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+}
+.stTabs [data-baseweb="tab"] p,
+.stTabs [data-baseweb="tab"] span,
+.stTabs [data-baseweb="tab"] div {
+    color: #111827 !important;
+    font-weight: 700 !important;
+}
+.stTabs [aria-selected="true"] {
+    background: #fff1f1 !important;
+    border-bottom: 3px solid #ff4b4b !important;
+}
+label, .stMarkdown, .stText, p, span, div { color: #111827; }
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div {
+    color: #111827 !important;
+}
+[data-testid="stSidebar"] {
+    background: #ffffff !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -254,7 +286,7 @@ with st.sidebar:
 # ---------------- HEADER ----------------
 st.markdown("""
 <div class="hero">
-  <h1>🛍️ Générateur Etsy SEO V11</h1>
+  <h1>🛍️ Générateur Etsy SEO V12</h1>
   <p>Interface en français. Les titres, descriptions et tags Etsy sont générés en anglais pour le SEO.</p>
   <span class="badge">Extraction rapide</span><span class="badge">Prompts sauvegardables</span><span class="badge">Sans photos</span>
 </div>
