@@ -1,16 +1,20 @@
-# Générateur Etsy SEO V10 Photos
+# Etsy SEO Generator V11 - Rapide et lisible
 
-Interface française, génération Etsy en anglais, prompts sauvegardables, extraction AliExpress et onglet Photos.
+Interface en français, génération des fiches Etsy en anglais.
 
-## Nouveautés V10
-- Extraction des images AliExpress quand possible
-- Affichage et sélection des images
-- Export ZIP des photos originales
-- Génération de nouvelles images carrées 1:1 via OpenAI Images (`gpt-image-1`)
-- Prompt photo modifiable
+## Installation Streamlit
 
-## Secrets Streamlit recommandés
+1. Envoyez `app.py`, `requirements.txt`, `README.md` sur GitHub.
+2. Commit changes.
+3. Streamlit se mettra à jour automatiquement.
+
+## Secrets recommandés
+
+Dans Streamlit > Manage app > Settings > Secrets :
+
 ```toml
-OPENAI_API_KEY = "ta_cle_openai"
-SCRAPERAPI_KEY = "ta_cle_scraperapi"
+OPENAI_API_KEY = "votre_cle_openai"
+SCRAPERAPI_KEY = "votre_cle_scraperapi"
 ```
+
+ScraperAPI est optionnel mais aide pour AliExpress.
