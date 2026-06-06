@@ -1,21 +1,18 @@
-# Etsy Product Listing Generator V6 - Interface Française
+# Générateur Etsy SEO V7
 
-Interface en français, génération des fiches Etsy en anglais.
+Interface française plus jolie et plus intuitive. Les fiches Etsy générées restent en anglais pour le SEO.
 
-Fonctions :
-- URL AliExpress avec extraction automatique si possible
-- ScraperAPI optionnel pour contourner les blocages AliExpress
-- Prompt modifiable à la main
-- Catégories prédéfinies
-- Mots-clés SEO personnalisés
-- Fiche concurrente pour inspiration
-- Génération en anglais : titre, description, 13 tags, prix conseillé
+## Installation Streamlit
 
-## Secrets Streamlit recommandés
+1. Envoyez `app.py`, `requirements.txt` et `README.md` sur GitHub.
+2. Cliquez sur `Commit changes`.
+3. Streamlit se mettra à jour automatiquement.
 
-Dans Streamlit Cloud > Settings > Secrets :
+## Clés API
+
+Dans Streamlit Secrets, ajoutez :
 
 ```toml
-OPENAI_API_KEY = "ta_cle_openai"
-SCRAPERAPI_KEY = "ta_cle_scraperapi"
+OPENAI_API_KEY = "votre_cle_openai"
+SCRAPERAPI_KEY = "votre_cle_scraperapi"
 ```

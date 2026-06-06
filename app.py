@@ -5,10 +5,69 @@ from bs4 import BeautifulSoup
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="Générateur Etsy SEO", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Générateur Etsy SEO", page_icon="🛍️", layout="wide", initial_sidebar_state="expanded")
 
-st.title("🛍️ Générateur de fiches produits Etsy")
-st.caption("Interface en français. Les titres, descriptions et tags générés sont en anglais pour optimiser le SEO Etsy.")
+st.markdown("""
+<style>
+:root {
+  --card-bg: rgba(255,255,255,0.78);
+  --border: rgba(120, 90, 160, 0.18);
+  --accent: #7c3aed;
+  --soft: #f5f0ff;
+}
+.block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1280px;}
+[data-testid="stSidebar"] {background: linear-gradient(180deg, #fbf7ff 0%, #ffffff 65%);}
+.hero {
+  padding: 1.4rem 1.6rem;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #faf5ff 0%, #eef2ff 48%, #fff7ed 100%);
+  border: 1px solid rgba(124,58,237,.16);
+  margin-bottom: 1rem;
+}
+.hero h1 {margin: 0; font-size: 2.2rem; line-height: 1.1;}
+.hero p {margin: .45rem 0 0 0; color: #4b5563; font-size: 1.02rem;}
+.step-card {
+  padding: 1rem 1rem;
+  border-radius: 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.05);
+  margin-bottom: .75rem;
+}
+.step-title {font-size: 1.05rem; font-weight: 750; margin-bottom: .25rem; color: #111827;}
+.step-help {font-size: .92rem; color: #6b7280; margin-bottom: .7rem;}
+.result-card {
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(124,58,237,.18);
+  box-shadow: 0 8px 26px rgba(31, 41, 55, 0.07);
+  margin-bottom: .85rem;
+}
+.small-pill {
+  display:inline-block; padding:.22rem .55rem; border-radius:999px;
+  background:#f3e8ff; color:#6d28d9; font-weight:650; font-size:.82rem; margin-right:.35rem;
+}
+.copy-label {font-weight:700; color:#374151; margin-bottom:.25rem;}
+.stButton>button {border-radius: 12px; font-weight: 700;}
+.stTextInput input, .stTextArea textarea, .stNumberInput input {border-radius: 12px !important;}
+[data-testid="stMetricValue"] {font-size: 1.35rem;}
+hr {margin: 1rem 0;}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="hero">
+  <h1>🛍️ Générateur Etsy SEO</h1>
+  <p>Interface simple en français. Le contenu Etsy généré reste en anglais pour maximiser le SEO et la conversion.</p>
+  <div style="margin-top:.8rem;">
+    <span class="small-pill">URL AliExpress</span>
+    <span class="small-pill">Prompt modifiable</span>
+    <span class="small-pill">Catégories</span>
+    <span class="small-pill">Tags Etsy</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------- Helpers ----------
 def get_secret(name: str, default: str = "") -> str:
@@ -53,14 +112,15 @@ Important rules:
 """
 
 with st.sidebar:
-    st.header("⚙️ Réglages")
+    st.markdown("### ⚙️ Réglages")
     openai_key = st.text_input("Clé API OpenAI", value=OPENAI_SECRET, type="password", help="Obligatoire pour générer les fiches produits.")
-    scraperapi_key = st.text_input("Clé ScraperAPI optionnelle", value=SCRAPERAPI_SECRET, type="password", help="Aide à lire AliExpress quand le site bloque l'extraction.")
-    st.caption("Les clés peuvent être sauvegardées dans les Secrets Streamlit pour éviter de les retaper.")
-    st.divider()
-    margin = st.slider("Marge cible en %", 20, 90, 45)
-    shipping = st.number_input("Coût de livraison estimé", min_value=0.0, value=0.0, step=0.5)
-    fees_pct = st.slider("Frais Etsy + paiement estimés en %", 5, 30, 12)
+    scraperapi_key = st.text_input("Clé ScraperAPI", value=SCRAPERAPI_SECRET, type="password", help="Optionnel, mais recommandé pour lire AliExpress.")
+    st.info("Astuce : sauvegarde tes clés dans les Secrets Streamlit pour ne plus les retaper.")
+    st.markdown("---")
+    st.markdown("### 💰 Prix")
+    margin = st.slider("Marge cible", 20, 90, 45, format="%d%%")
+    shipping = st.number_input("Livraison estimée", min_value=0.0, value=0.0, step=0.5)
+    fees_pct = st.slider("Frais Etsy + paiement", 5, 30, 12, format="%d%%")
     currency = st.selectbox("Devise", ["USD", "EUR", "GBP", "CAD", "AUD"], index=1)
 
 
@@ -77,17 +137,7 @@ def fetch_url(url: str, scraper_key: str = ""):
     try:
         if scraper_key:
             api_url = "http://api.scraperapi.com/"
-            r = requests.get(
-                api_url,
-                params={
-                    "api_key": scraper_key,
-                    "url": url,
-                    "render": "true",
-                    "country_code": "us",
-                    "premium": "true",
-                },
-                timeout=60,
-            )
+            r = requests.get(api_url, params={"api_key": scraper_key, "url": url, "render": "true", "country_code": "us", "premium": "true"}, timeout=60)
         else:
             r = requests.get(url, headers=headers, timeout=25)
         if r.status_code >= 400:
@@ -117,11 +167,9 @@ def extract_product_from_html(html: str):
     candidates = re.findall(r'"(?:subject|title|productTitle)"\s*:\s*"(.*?)"', text)
     if candidates:
         title = max([c.encode("utf-8").decode("unicode_escape", errors="ignore") for c in candidates], key=len)
-
     desc_candidates = re.findall(r'"(?:description|productDescription|seoDescription)"\s*:\s*"(.*?)"', text)
     for c in desc_candidates[:5]:
         desc_parts.append(c.encode("utf-8").decode("unicode_escape", errors="ignore"))
-
     price_candidates = re.findall(r'"(?:salePrice|formattedPrice|price)"\s*:\s*"?([^",}]+)', text)
     if price_candidates:
         price = price_candidates[0]
@@ -141,7 +189,6 @@ def recommended_price(cost, shipping_cost, margin_pct, fees_percentage):
 def generate_listing(api_key, data, niche, tone, cost_price, base_prompt, category_context, seo_keywords, competitor_text):
     client = OpenAI(api_key=api_key)
     sell_price = recommended_price(cost_price, shipping, margin, fees_pct)
-
     prompt = f"""
 {base_prompt}
 
@@ -178,7 +225,6 @@ Suggested selling price:
 Return ONLY valid JSON with these keys:
 seo_title, short_description, full_description, bullet_points, tags, keywords, category_suggestion, suggested_price, copy_paste_block
 """
-
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
@@ -188,105 +234,136 @@ seo_title, short_description, full_description, bullet_points, tags, keywords, c
     return json.loads(response.choices[0].message.content)
 
 # ---------- UI ----------
-left, right = st.columns([1.05, 0.95])
+extracted = st.session_state.get("extracted", {"title": "", "description": "", "price": ""})
 
-with left:
-    st.subheader("📦 Source produit")
-    url = st.text_input("Lien AliExpress du produit")
+tab1, tab2, tab3 = st.tabs(["1️⃣ Produit", "2️⃣ SEO & Prompt", "3️⃣ Résultat"])
 
-    colA, colB = st.columns(2)
-    extracted = st.session_state.get("extracted", {"title": "", "description": "", "price": ""})
-
-    with colA:
-        if st.button("Extraire depuis le lien AliExpress", type="primary"):
-            if not url:
-                st.warning("Colle d'abord un lien AliExpress.")
-            else:
-                with st.spinner("Lecture de la page produit..."):
-                    html, err = fetch_url(url, scraperapi_key)
-                    if err or not html:
-                        st.error(f"Extraction impossible : {err}. Colle les informations du produit manuellement plus bas.")
-                    else:
-                        data = extract_product_from_html(html)
-                        if not data.get("title") and not data.get("description"):
-                            st.warning("AliExpress a bloqué ou caché les données utiles. Ajoute une clé ScraperAPI ou colle les infos manuellement.")
-                        else:
-                            st.session_state["extracted"] = data
-                            st.success("Informations produit extraites. Vérifie ou modifie les champs ci-dessous.")
-                            st.rerun()
-
-    with colB:
-        if st.button("Vider les champs"):
+with tab1:
+    st.markdown('<div class="step-card"><div class="step-title">📦 Étape 1 — Récupère ou colle les infos produit</div><div class="step-help">Colle un lien AliExpress puis essaie l’extraction. Si AliExpress bloque, colle le titre et la description manuellement.</div>', unsafe_allow_html=True)
+    url = st.text_input("Lien AliExpress", placeholder="https://www.aliexpress.com/item/...")
+    c1, c2, c3 = st.columns([1.2, 1, 1])
+    with c1:
+        extract_clicked = st.button("🔎 Extraire depuis AliExpress", type="primary", use_container_width=True)
+    with c2:
+        if st.button("🧹 Vider le produit", use_container_width=True):
             st.session_state["extracted"] = {"title": "", "description": "", "price": ""}
             st.session_state.pop("result", None)
             st.rerun()
+    with c3:
+        st.caption("ScraperAPI recommandé si AliExpress bloque.")
 
-    title = st.text_input("Titre fournisseur / AliExpress", value=extracted.get("title", ""))
-    description = st.text_area("Description fournisseur / AliExpress", value=extracted.get("description", ""), height=180)
-    supplier_price = st.text_input("Prix fournisseur détecté optionnel", value=extracted.get("price", ""))
-    cost_price = st.number_input("Prix d'achat du produit", min_value=0.0, value=5.0, step=0.5)
+    if extract_clicked:
+        if not url:
+            st.warning("Colle d'abord un lien AliExpress.")
+        else:
+            with st.spinner("Lecture de la page produit..."):
+                html, err = fetch_url(url, scraperapi_key)
+                if err or not html:
+                    st.error(f"Extraction impossible : {err}. Colle les informations du produit manuellement plus bas.")
+                else:
+                    data = extract_product_from_html(html)
+                    if not data.get("title") and not data.get("description"):
+                        st.warning("AliExpress a bloqué ou caché les données utiles. Ajoute une clé ScraperAPI ou colle les infos manuellement.")
+                    else:
+                        st.session_state["extracted"] = data
+                        st.success("Informations extraites. Tu peux les vérifier ou les modifier ci-dessous.")
+                        st.rerun()
 
-    st.subheader("🎯 Stratégie SEO")
-    selected_category = st.selectbox("Catégorie / type de boutique", list(CATEGORY_PROMPTS.keys()))
-    category_context = st.text_area("Contexte de catégorie modifiable", value=CATEGORY_PROMPTS[selected_category], height=120)
-    niche = st.text_input("Client cible / niche", placeholder="Exemple : women gift, gothic fashion, home decor, pet lovers")
-    seo_keywords = st.text_input("Mots-clés SEO à ajouter optionnel", placeholder="Exemple : gothic corset, waist trainer, renaissance outfit")
-    competitor_text = st.text_area("Fiche concurrente ou inspiration optionnel", height=100, placeholder="Colle ici un titre ou une description concurrente si tu veux t'en inspirer sans copier.")
-    tone = st.selectbox("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.subheader("🧠 Prompt IA")
-    st.caption("Tu peux modifier le prompt à la main. Même si l'interface est en français, le prompt demande toujours des réponses en anglais.")
-    if st.button("Réinitialiser le prompt par défaut"):
-        st.session_state["base_prompt"] = DEFAULT_PROMPT
-        st.rerun()
-    base_prompt = st.text_area("Prompt principal modifiable", value=st.session_state.get("base_prompt", DEFAULT_PROMPT), height=260)
-    st.session_state["base_prompt"] = base_prompt
+    colp1, colp2 = st.columns([1.2, .8])
+    with colp1:
+        title = st.text_input("Titre fournisseur / AliExpress", value=extracted.get("title", ""), placeholder="Colle le titre du produit ici")
+        description = st.text_area("Description fournisseur / AliExpress", value=extracted.get("description", ""), height=230, placeholder="Colle la description AliExpress ici")
+    with colp2:
+        supplier_price = st.text_input("Prix fournisseur détecté", value=extracted.get("price", ""), placeholder="Optionnel")
+        cost_price = st.number_input("Prix d'achat du produit", min_value=0.0, value=5.0, step=0.5)
+        estimated = recommended_price(cost_price, shipping, margin, fees_pct)
+        st.metric("Prix conseillé estimé", f"{estimated} {currency}")
+        st.caption("Ce prix est recalculé avec ta marge, tes frais Etsy et la livraison estimée.")
 
-    if st.button("Générer la fiche Etsy en anglais", type="primary"):
+with tab2:
+    st.markdown('<div class="step-card"><div class="step-title">🎯 Étape 2 — Choisis la stratégie SEO</div><div class="step-help">Tu peux utiliser une catégorie prête à l’emploi ou modifier le prompt selon ta niche.</div>', unsafe_allow_html=True)
+    sc1, sc2 = st.columns([.9, 1.1])
+    with sc1:
+        selected_category = st.selectbox("Catégorie / type de boutique", list(CATEGORY_PROMPTS.keys()))
+        niche = st.text_input("Client cible / niche", placeholder="Exemple : gothic fashion, gift for women, home decor")
+        seo_keywords = st.text_input("Mots-clés SEO à ajouter", placeholder="Exemple : gothic corset, waist trainer, renaissance outfit")
+        tone = st.selectbox("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
+    with sc2:
+        category_context = st.text_area("Contexte de catégorie modifiable", value=CATEGORY_PROMPTS[selected_category], height=150)
+        competitor_text = st.text_area("Fiche concurrente / inspiration", height=120, placeholder="Optionnel : colle ici un titre ou une description concurrente. L’IA ne doit pas copier.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    with st.expander("🧠 Modifier le prompt principal", expanded=False):
+        st.caption("À modifier seulement si tu veux changer la logique globale. Les réponses Etsy resteront en anglais.")
+        if st.button("Réinitialiser le prompt par défaut"):
+            st.session_state["base_prompt"] = DEFAULT_PROMPT
+            st.rerun()
+        base_prompt = st.text_area("Prompt principal", value=st.session_state.get("base_prompt", DEFAULT_PROMPT), height=280)
+        st.session_state["base_prompt"] = base_prompt
+
+    st.markdown("---")
+    gen_col1, gen_col2 = st.columns([1, 1])
+    with gen_col1:
+        generate_clicked = st.button("✨ Générer la fiche Etsy en anglais", type="primary", use_container_width=True)
+    with gen_col2:
+        st.caption("Après génération, va dans l’onglet Résultat pour copier le titre, la description et les tags.")
+
+    if generate_clicked:
         if not openai_key:
             st.error("Ajoute ta clé API OpenAI dans la barre de gauche.")
         elif not title and not description:
-            st.error("Extrais les informations depuis l'URL ou colle le titre/la description manuellement.")
+            st.error("Va dans l’onglet Produit et colle au minimum un titre ou une description.")
         else:
             with st.spinner("Génération de la fiche Etsy en anglais..."):
                 try:
-                    result = generate_listing(
-                        openai_key,
-                        {"title": title, "description": description, "price": supplier_price},
-                        niche,
-                        tone,
-                        cost_price,
-                        base_prompt,
-                        category_context,
-                        seo_keywords,
-                        competitor_text,
-                    )
+                    result = generate_listing(openai_key, {"title": title, "description": description, "price": supplier_price}, niche, tone, cost_price, st.session_state.get("base_prompt", DEFAULT_PROMPT), category_context, seo_keywords, competitor_text)
                     st.session_state["result"] = result
+                    st.success("Fiche générée ! Ouvre l’onglet Résultat.")
                 except Exception as e:
                     st.error(f"La génération a échoué : {e}")
 
-with right:
-    st.subheader("✅ Fiche Etsy générée")
+with tab3:
     result = st.session_state.get("result")
+    st.markdown('<div class="step-card"><div class="step-title">✅ Étape 3 — Copie ta fiche dans Etsy</div><div class="step-help">Les blocs ci-dessous sont prêts à copier-coller dans ta fiche Etsy.</div></div>', unsafe_allow_html=True)
     if not result:
-        st.info("Ta fiche générée apparaîtra ici.")
+        st.info("Aucune fiche générée pour le moment. Va dans l’onglet Produit puis SEO & Prompt.")
     else:
-        st.markdown("### Titre SEO Etsy")
-        st.code(result.get("seo_title", ""), language=None)
-        st.markdown("### Description courte")
-        st.write(result.get("short_description", ""))
-        st.markdown("### Description complète")
-        st.write(result.get("full_description", ""))
-        st.markdown("### Points clés")
-        for b in result.get("bullet_points", []):
-            st.write(f"• {b}")
-        st.markdown("### 13 tags Etsy")
         tags = result.get("tags", [])
-        if isinstance(tags, list):
-            st.code(", ".join(tags), language=None)
-        else:
-            st.code(str(tags), language=None)
-        st.markdown("### Prix conseillé")
-        st.code(str(result.get("suggested_price", "")), language=None)
-        st.markdown("### Bloc prêt à copier-coller")
-        st.text_area("Copie ce bloc dans Etsy", value=result.get("copy_paste_block", ""), height=300)
+        tags_line = ", ".join(tags) if isinstance(tags, list) else str(tags)
+        keywords = result.get("keywords", [])
+        keywords_line = ", ".join(keywords) if isinstance(keywords, list) else str(keywords)
+
+        r1, r2 = st.columns([1.05, .95])
+        with r1:
+            st.markdown('<div class="result-card"><div class="copy-label">Titre SEO Etsy</div>', unsafe_allow_html=True)
+            st.text_area("Titre", value=result.get("seo_title", ""), height=85, label_visibility="collapsed")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="result-card"><div class="copy-label">Description complète</div>', unsafe_allow_html=True)
+            st.text_area("Description", value=result.get("full_description", ""), height=260, label_visibility="collapsed")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="result-card"><div class="copy-label">Bloc complet prêt à copier</div>', unsafe_allow_html=True)
+            st.text_area("Bloc complet", value=result.get("copy_paste_block", ""), height=300, label_visibility="collapsed")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with r2:
+            st.markdown('<div class="result-card"><div class="copy-label">Description courte</div>', unsafe_allow_html=True)
+            st.write(result.get("short_description", ""))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="result-card"><div class="copy-label">13 tags Etsy</div>', unsafe_allow_html=True)
+            st.text_area("Tags", value=tags_line, height=95, label_visibility="collapsed")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="result-card"><div class="copy-label">Points clés</div>', unsafe_allow_html=True)
+            for b in result.get("bullet_points", []):
+                st.write(f"• {b}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="result-card"><div class="copy-label">SEO & prix</div>', unsafe_allow_html=True)
+            st.write("**Catégorie suggérée :**", result.get("category_suggestion", ""))
+            st.write("**Mots-clés :**", keywords_line)
+            st.write("**Prix conseillé :**", result.get("suggested_price", ""))
+            st.markdown('</div>', unsafe_allow_html=True)
