@@ -9,50 +9,178 @@ st.set_page_config(page_title="Générateur Etsy SEO", page_icon="🛍️", layo
 
 st.markdown("""
 <style>
+/* ---------- Base lisible ---------- */
 :root {
-  --card-bg: rgba(255,255,255,0.78);
-  --border: rgba(120, 90, 160, 0.18);
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --card-soft: #f1f5f9;
+  --text: #111827;
+  --muted: #4b5563;
+  --border: #d7dde8;
   --accent: #7c3aed;
-  --soft: #f5f0ff;
+  --accent-2: #ef4444;
 }
-.block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1280px;}
-[data-testid="stSidebar"] {background: linear-gradient(180deg, #fbf7ff 0%, #ffffff 65%);}
+
+html, body, [data-testid="stAppViewContainer"], .stApp {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.block-container {
+  padding-top: 1.4rem;
+  padding-bottom: 2.5rem;
+  max-width: 1180px;
+}
+
+/* ---------- Sidebar ---------- */
+[data-testid="stSidebar"] {
+  background: #ffffff !important;
+  border-right: 1px solid var(--border);
+}
+[data-testid="stSidebar"] * {
+  color: var(--text) !important;
+}
+[data-testid="stSidebar"] .stInfo {
+  background: #e8f1ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 12px !important;
+}
+
+/* ---------- Texte général ---------- */
+h1, h2, h3, h4, h5, h6, p, span, label, div {
+  color: var(--text) !important;
+}
+small, .caption, [data-testid="stCaptionContainer"], .step-help {
+  color: var(--muted) !important;
+}
+
+/* ---------- Header ---------- */
 .hero {
-  padding: 1.4rem 1.6rem;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #faf5ff 0%, #eef2ff 48%, #fff7ed 100%);
-  border: 1px solid rgba(124,58,237,.16);
-  margin-bottom: 1rem;
-}
-.hero h1 {margin: 0; font-size: 2.2rem; line-height: 1.1;}
-.hero p {margin: .45rem 0 0 0; color: #4b5563; font-size: 1.02rem;}
-.step-card {
-  padding: 1rem 1rem;
-  border-radius: 18px;
-  background: var(--card-bg);
+  padding: 1.7rem 1.8rem;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #f4f0ff 55%, #fff7ed 100%);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.05);
-  margin-bottom: .75rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  margin-bottom: 1.1rem;
 }
-.step-title {font-size: 1.05rem; font-weight: 750; margin-bottom: .25rem; color: #111827;}
-.step-help {font-size: .92rem; color: #6b7280; margin-bottom: .7rem;}
-.result-card {
-  padding: 1rem 1.1rem;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(124,58,237,.18);
-  box-shadow: 0 8px 26px rgba(31, 41, 55, 0.07);
-  margin-bottom: .85rem;
+.hero h1 {
+  margin: 0;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  color: #111827 !important;
+}
+.hero p {
+  margin: .55rem 0 0 0;
+  color: #374151 !important;
+  font-size: 1.02rem;
 }
 .small-pill {
-  display:inline-block; padding:.22rem .55rem; border-radius:999px;
-  background:#f3e8ff; color:#6d28d9; font-weight:650; font-size:.82rem; margin-right:.35rem;
+  display:inline-block;
+  padding:.28rem .65rem;
+  border-radius:999px;
+  background:#ede9fe;
+  color:#5b21b6 !important;
+  font-weight:700;
+  font-size:.82rem;
+  margin-right:.35rem;
+  margin-top:.25rem;
 }
-.copy-label {font-weight:700; color:#374151; margin-bottom:.25rem;}
-.stButton>button {border-radius: 12px; font-weight: 700;}
-.stTextInput input, .stTextArea textarea, .stNumberInput input {border-radius: 12px !important;}
-[data-testid="stMetricValue"] {font-size: 1.35rem;}
-hr {margin: 1rem 0;}
+
+/* ---------- Onglets ---------- */
+button[data-baseweb="tab"] {
+  background: transparent !important;
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+button[data-baseweb="tab"] p {
+  color: #111827 !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+  border-bottom: 3px solid var(--accent-2) !important;
+}
+
+/* ---------- Cartes ---------- */
+.step-card, .result-card {
+  padding: 1.15rem 1.2rem;
+  border-radius: 18px;
+  background: var(--card) !important;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+  margin-bottom: 1rem;
+}
+.step-title, .copy-label {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: .3rem;
+  color: #111827 !important;
+}
+.step-help {
+  font-size: .95rem;
+  margin-bottom: .65rem;
+  line-height: 1.45;
+}
+
+/* ---------- Champs ---------- */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input,
+.stSelectbox div[data-baseweb="select"] > div {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+}
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+label, [data-testid="stWidgetLabel"] p {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+/* ---------- Boutons ---------- */
+.stButton>button {
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+  min-height: 2.6rem;
+}
+.stButton>button[kind="primary"] {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: 1px solid #ef4444 !important;
+}
+.stButton>button:not([kind="primary"]) {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* ---------- Alerts / métriques ---------- */
+[data-testid="stMetricValue"] {
+  font-size: 1.45rem !important;
+  color: #111827 !important;
+}
+[data-testid="stMetricLabel"] p {
+  color: #374151 !important;
+}
+.stAlert {
+  border-radius: 12px !important;
+  color: #111827 !important;
+}
+hr {margin: 1rem 0; border-color: var(--border);}
+
+/* ---------- Code / zones copier ---------- */
+pre, code {
+  color: #111827 !important;
+  background: #f8fafc !important;
+}
+
+/* Enlève l'effet trop sombre de certains thèmes Streamlit */
+[data-baseweb="input"], [data-baseweb="textarea"] {
+  background: transparent !important;
+}
 </style>
 """, unsafe_allow_html=True)
 

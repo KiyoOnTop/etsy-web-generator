@@ -1,18 +1,14 @@
-# Générateur Etsy SEO V7
+# Générateur Etsy SEO V8 — Interface plus lisible
 
-Interface française plus jolie et plus intuitive. Les fiches Etsy générées restent en anglais pour le SEO.
+Version avec interface française, résultats Etsy en anglais, design plus clair et meilleur contraste.
 
-## Installation Streamlit
+## Déploiement
+1. Envoyer `app.py`, `requirements.txt`, `README.md` sur GitHub.
+2. Commit changes.
+3. Attendre la mise à jour Streamlit.
 
-1. Envoyez `app.py`, `requirements.txt` et `README.md` sur GitHub.
-2. Cliquez sur `Commit changes`.
-3. Streamlit se mettra à jour automatiquement.
-
-## Clés API
-
-Dans Streamlit Secrets, ajoutez :
-
+## Secrets Streamlit recommandés
 ```toml
-OPENAI_API_KEY = "votre_cle_openai"
-SCRAPERAPI_KEY = "votre_cle_scraperapi"
+OPENAI_API_KEY = "ta_cle_openai"
+SCRAPERAPI_KEY = "ta_cle_scraperapi"
 ```
