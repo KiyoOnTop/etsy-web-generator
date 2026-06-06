@@ -9,101 +9,84 @@ import requests
 import streamlit as st
 from bs4 import BeautifulSoup
 from openai import OpenAI
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageEnhance
 
-st.set_page_config(page_title="Générateur Etsy SEO", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Etsy Generator Pro", page_icon="🛍️", layout="wide")
 
-# ----------------------------- CSS -----------------------------
-st.markdown(
-    """
+# -------------------- STYLE --------------------
+st.markdown("""
 <style>
-:root {
-    --bg: #f7f3ee;
-    --card: #ffffff;
-    --text: #151515;
-    --muted: #5e6673;
-    --accent: #8b5cf6;
-    --accent2: #111827;
-    --border: #e5e7eb;
+:root{
+  --bg:#f8f5ef;
+  --card:#ffffff;
+  --ink:#171717;
+  --muted:#666;
+  --brand:#7c3aed;
+  --brand2:#a855f7;
+  --line:#eadfd2;
+  --soft:#fff7ed;
 }
-.stApp { background: var(--bg); color: var(--text); }
-[data-testid="stSidebar"] { background: #fffaf3; border-right: 1px solid var(--border); }
-.block-container { padding-top: 2rem; max-width: 1250px; }
-h1,h2,h3,h4,p,div,span,label { color: var(--text) !important; }
-small, .stCaption, [data-testid="stCaptionContainer"] { color: var(--muted) !important; }
+.stApp { background: var(--bg); color: var(--ink); }
+.block-container { max-width: 1380px; padding-top: 1.2rem; }
+h1,h2,h3,h4,p,span,label,div { color: var(--ink); }
 .hero {
-    padding: 26px 30px;
-    border-radius: 24px;
-    background: linear-gradient(135deg, #ffffff 0%, #fff6e8 55%, #f3e8ff 100%);
-    border: 1px solid #eadfd5;
-    box-shadow: 0 18px 40px rgba(17,24,39,.08);
-    margin-bottom: 18px;
+  background: linear-gradient(135deg, #fff, #fff7ed 55%, #f3e8ff);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 30px 34px;
+  margin-bottom: 22px;
+  box-shadow: 0 18px 45px rgba(84,52,16,.08);
 }
 .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 22px;
-    box-shadow: 0 12px 28px rgba(17,24,39,.06);
-    margin-bottom: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 12px 32px rgba(84,52,16,.06);
 }
-.info-box {
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    border-radius: 14px;
-    padding: 14px 16px;
+.small-card {
+  background: var(--soft);
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  padding: 16px;
 }
-.warn-box {
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    border-radius: 14px;
-    padding: 14px 16px;
+.step-badge {
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--brand); color:white; width:28px;height:28px;border-radius:50%;
+  font-weight:800; margin-right:8px;
 }
-.ok-box {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    border-radius: 14px;
-    padding: 14px 16px;
+.copybox textarea { font-family: ui-monospace, Menlo, Consolas, monospace !important; }
+.stButton>button {
+  border-radius: 14px !important;
+  border: 1px solid #7c3aed !important;
+  background: linear-gradient(135deg,#7c3aed,#a855f7) !important;
+  color: white !important;
+  font-weight: 800 !important;
+  min-height: 44px;
 }
-.stButton > button {
-    border-radius: 12px !important;
-    font-weight: 700 !important;
-    border: 1px solid #cbd5e1 !important;
+.stButton>button[kind="secondary"]{
+  background: #fff !important;
+  color:#4c1d95 !important;
 }
-.stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
-    color: white !important;
-    border: none !important;
+.stTextInput input, .stTextArea textarea, .stNumberInput input {
+  background:white !important; color:#111 !important; border:1px solid #d6c8b8 !important; border-radius:14px !important;
 }
-/* Inputs */
-.stTextInput input, .stNumberInput input, textarea {
-    background: white !important;
-    color: #111827 !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 12px !important;
+.stSelectbox div[data-baseweb="select"] { background:white !important; color:#111 !important; border-radius:14px !important; }
+div[role="listbox"] { background:white !important; color:#111 !important; }
+div[role="option"] { color:#111 !important; background:white !important; }
+div[role="option"]:hover { background:#f3e8ff !important; }
+.stTabs [data-baseweb="tab-list"] { gap: 14px; }
+.stTabs [data-baseweb="tab"] {
+  background:white; border:1px solid var(--line); border-radius:999px; padding:10px 18px; color:#111 !important; font-weight:800;
 }
-/* Selectbox */
-.stSelectbox div[data-baseweb="select"] > div {
-    background-color: white !important;
-    color: #111827 !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 12px !important;
-}
-.stSelectbox svg { color: #111827 !important; fill: #111827 !important; }
-div[role="listbox"], ul[role="listbox"] { background: white !important; color: #111827 !important; }
-div[role="option"], li[role="option"] { color: #111827 !important; background: white !important; }
-div[role="option"]:hover, li[role="option"]:hover { background: #f3f4f6 !important; }
-/* Tabs */
-button[data-baseweb="tab"] { color: #111827 !important; font-weight: 800 !important; background: #fff !important; border-radius: 12px 12px 0 0 !important; margin-right: 6px !important; }
-button[data-baseweb="tab"][aria-selected="true"] { color: #8b5cf6 !important; border-bottom: 3px solid #8b5cf6 !important; }
-pre, code { color: #111827 !important; background: #f8fafc !important; border-radius: 12px !important; }
-.img-card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 10px; background: white; }
+.stTabs [aria-selected="true"] { background:#f3e8ff !important; color:#5b21b6 !important; border-color:#c084fc; }
+hr { border-color: var(--line); }
+img { border-radius: 14px; }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# ----------------------------- Helpers -----------------------------
+# -------------------- HELPERS --------------------
 def get_secret(name: str, default: str = "") -> str:
     try:
         return st.secrets.get(name, default)
@@ -111,7 +94,7 @@ def get_secret(name: str, default: str = "") -> str:
         return default
 
 
-def clean_text(text: str, limit: int = 8000) -> str:
+def clean_text(text: str, limit: int = 9000) -> str:
     text = re.sub(r"\s+", " ", text or "").strip()
     return text[:limit]
 
@@ -123,53 +106,31 @@ def recommended_price(cost: float, shipping: float, margin_pct: int, fees_pct: i
     return round((cost + shipping) / denominator, 2)
 
 
-def fetch_url(url: str, scraper_key: str = "") -> Tuple[str, str]:
+def fetch_url(url: str, scraper_key: str = "") -> Tuple[str | None, str | None]:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
     }
     try:
         if scraper_key:
-            # Version rapide sans render=true. Beaucoup plus stable que le rendu JS complet.
             r = requests.get(
                 "https://api.scraperapi.com/",
                 params={"api_key": scraper_key, "url": url, "country_code": "us", "premium": "true"},
-                timeout=35,
+                timeout=75,
             )
         else:
-            r = requests.get(url, headers=headers, timeout=20)
+            r = requests.get(url, headers=headers, timeout=30)
         if r.status_code >= 400:
-            return "", f"Erreur HTTP {r.status_code}"
-        return r.text, ""
+            return None, f"Erreur HTTP {r.status_code}"
+        return r.text, None
     except Exception as e:
-        return "", str(e)
+        return None, str(e)
 
 
-def decode_js_string(s: str) -> str:
-    try:
-        return bytes(s, "utf-8").decode("unicode_escape", errors="ignore")
-    except Exception:
-        return s
-
-
-def normalize_image_url(src: str) -> str:
-    if not src:
-        return ""
-    src = src.strip().strip('"').strip("'")
-    src = src.replace("\\/", "/")
-    if src.startswith("//"):
-        src = "https:" + src
-    if src.startswith("http://"):
-        src = "https://" + src[7:]
-    # remove thumbnail suffixes when possible
-    src = re.sub(r"_(\d+x\d+|\d+x\d+q\d+|\d+x\d+\.jpg).*", "", src)
-    return src
-
-
-def extract_product_from_html(html: str) -> Dict[str, object]:
+def extract_product_from_html(html: str) -> Dict:
     soup = BeautifulSoup(html, "html.parser")
     title = ""
-    desc_parts = []
+    desc_parts: List[str] = []
     price = ""
     images: List[str] = []
 
@@ -185,87 +146,342 @@ def extract_product_from_html(html: str) -> Dict[str, object]:
 
     og_img = soup.find("meta", property="og:image")
     if og_img and og_img.get("content"):
-        images.append(normalize_image_url(og_img["content"]))
+        images.append(og_img["content"])
 
     text = html
-    candidates = re.findall(r'"(?:subject|title|productTitle)"\s*:\s*"(.*?)"', text)
-    if candidates:
-        title = max([decode_js_string(c) for c in candidates], key=len)
+    # AliExpress often stores info in embedded JSON / escaped strings.
+    title_candidates = re.findall(r'"(?:subject|title|productTitle)"\s*:\s*"(.*?)"', text)
+    if title_candidates:
+        title = max([bytes(c, "utf-8").decode("unicode_escape", errors="ignore") for c in title_candidates], key=len)
+
     desc_candidates = re.findall(r'"(?:description|productDescription|seoDescription)"\s*:\s*"(.*?)"', text)
-    for c in desc_candidates[:8]:
-        desc_parts.append(decode_js_string(c))
+    for c in desc_candidates[:6]:
+        desc_parts.append(bytes(c, "utf-8").decode("unicode_escape", errors="ignore"))
+
     price_candidates = re.findall(r'"(?:salePrice|formattedPrice|price)"\s*:\s*"?([^",}]+)', text)
     if price_candidates:
         price = price_candidates[0]
 
-    # Image extraction: JSON fields + <img> tags
-    img_patterns = [
-        r'"(?:imageUrl|imgUrl|src|poster|summImagePath|productImage)"\s*:\s*"(https?:\\?/\\?/[^" ]+)"',
-        r'"(?:imageUrl|imgUrl|src|poster|summImagePath|productImage)"\s*:\s*"(//[^" ]+)"',
-        r'"(?:imagePathList|images|imageUrls)"\s*:\s*\[(.*?)\]',
-    ]
-    for pat in img_patterns[:2]:
-        for match in re.findall(pat, text):
-            url = normalize_image_url(decode_js_string(match))
-            if url and ("alicdn" in url or "aliexpress" in url):
-                images.append(url)
-    for block in re.findall(img_patterns[2], text, flags=re.S):
-        for match in re.findall(r'"(https?:\\?/\\?/[^" ]+|//[^" ]+)"', block):
-            url = normalize_image_url(decode_js_string(match))
-            if url and ("alicdn" in url or "aliexpress" in url):
-                images.append(url)
+    # Images: direct, escaped, and //cdn style.
+    raw_imgs = re.findall(r'https?:\\?/\\?/[^"\\]+?\.(?:jpg|jpeg|png|webp)', text, flags=re.I)
+    raw_imgs += re.findall(r'//[^"\']+?\.(?:jpg|jpeg|png|webp)', text, flags=re.I)
+    for img in raw_imgs:
+        img = img.replace("\\/", "/")
+        if img.startswith("//"):
+            img = "https:" + img
+        if any(bad in img.lower() for bad in ["sprite", "logo", "icon", "avatar"]):
+            continue
+        if img not in images:
+            images.append(img)
 
-    for img in soup.find_all("img"):
-        src = img.get("src") or img.get("data-src") or img.get("data-original") or ""
-        url = normalize_image_url(src)
-        if url and ("alicdn" in url or "aliexpress" in url):
-            images.append(url)
+    # Keep likely product images.
+    images = [i for i in images if len(i) < 600]
+    images = list(dict.fromkeys(images))[:20]
 
-    # dedupe keep order
-    seen = set()
-    clean_images = []
-    for u in images:
-        if u and u not in seen and len(clean_images) < 24:
-            seen.add(u)
-            clean_images.append(u)
-
-    title = clean_text(title.replace("| AliExpress", "").replace("- AliExpress", ""), 500)
-    description = clean_text("\n".join(desc_parts), 8000)
-    return {"title": title, "description": description, "price": clean_text(price, 80), "images": clean_images}
+    return {
+        "title": clean_text(title.replace("| AliExpress", "").replace("- AliExpress", "")),
+        "description": clean_text("\n".join(desc_parts)),
+        "price": clean_text(price),
+        "images": images,
+    }
 
 
-def generate_listing(api_key: str, data: Dict[str, str], custom_prompt: str, niche: str, tone: str, keywords: str, competitor: str, cost_price: float, shipping: float, margin: int, fees_pct: int, currency: str) -> Dict[str, object]:
-    client = OpenAI(api_key=api_key)
-    sell_price = recommended_price(cost_price, shipping, margin, fees_pct)
-    prompt = f"""
-{custom_prompt}
+def build_default_prompt(category_context: str) -> str:
+    return f"""You are an Etsy SEO expert and high-converting product listing copywriter.
 
-IMPORTANT OUTPUT RULES:
-- The Etsy listing text must be in English.
-- Keep the SEO title under 140 characters.
-- Generate exactly 13 Etsy tags.
-- Each tag must be maximum 20 characters if possible.
-- Tags must be on one single line separated by commas.
-- Do not claim handmade unless explicitly provided.
+Store / category context:
+{category_context}
+
+Your mission is to generate a complete Etsy product listing including:
+1. One SEO-optimized Etsy title, clearly related to the product and keywords, natural, readable, and under 140 characters.
+2. A warm, fluent, persuasive English description with a few relevant emojis, but not too many.
+3. Exactly 13 Etsy tags, each maximum 20 characters, on one single comma-separated line.
+
+Rules:
+- The final Etsy content must be in English.
+- Do not claim handmade unless the product is explicitly handmade.
 - Do not copy competitor text word-for-word.
-- Output valid JSON only.
+- Keep it natural, not robotic, and avoid keyword stuffing.
+- Use the strongest Etsy search keywords naturally in the title and first paragraph.
+- Make the listing conversion-focused and trustworthy.
+"""
+
+CATEGORY_PRESETS = {
+    "Corsets / Lingerie / Mode alternative": "I run an Etsy store specialized in corsets, lingerie-inspired fashion, gothic fashion, renaissance fashion, burlesque fashion, shapewear and alternative fashion. Focus on style, confidence, giftability, comfort, outfit ideas and conversion-focused Etsy SEO.",
+    "Bijoux / Accessoires": "I run an Etsy store specialized in jewelry and fashion accessories. Focus on giftability, everyday wear, elegance, style, occasions, materials, and conversion-focused Etsy SEO.",
+    "Décoration maison": "I run an Etsy store specialized in home decor. Focus on cozy interiors, aesthetic rooms, gift ideas, wall decor, living room styling, and conversion-focused Etsy SEO.",
+    "Animaux / Pet lovers": "I run an Etsy store specialized in pet lover products. Focus on emotional gifting, pet owners, dog lovers, cat lovers, practical use, cuteness and conversion-focused Etsy SEO.",
+    "Beauté / Bien-être": "I run an Etsy store specialized in beauty and wellness products. Focus on self-care, routine, relaxation, gifting, premium feel and conversion-focused Etsy SEO.",
+    "Mode générale": "I run an Etsy store specialized in fashion products. Focus on outfit ideas, style, comfort, seasonal trends, giftability and conversion-focused Etsy SEO.",
+    "Prompt personnalisé": "Use the custom category context written by the user. Adapt the Etsy listing to that niche while keeping the output in English.",
+}
+
+
+def generate_listing(api_key: str, payload: Dict) -> Dict:
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": payload["prompt"]}],
+        temperature=0.72,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content)
+
+
+def download_image(url: str) -> bytes | None:
+    try:
+        r = requests.get(url, timeout=20, headers={"User-Agent":"Mozilla/5.0"})
+        if r.status_code == 200 and r.content:
+            return r.content
+    except Exception:
+        return None
+    return None
+
+
+def make_square_preview(image_bytes: bytes) -> bytes | None:
+    try:
+        im = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        im = ImageOps.exif_transpose(im)
+        im = ImageOps.fit(im, (1200, 1200), method=Image.Resampling.LANCZOS, centering=(0.5, 0.45))
+        im = ImageEnhance.Contrast(im).enhance(1.08)
+        im = ImageEnhance.Sharpness(im).enhance(1.08)
+        out = io.BytesIO()
+        im.save(out, format="JPEG", quality=92)
+        return out.getvalue()
+    except Exception:
+        return None
+
+
+def make_zip_from_images(urls: List[str], square: bool = False) -> bytes:
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
+        for idx, url in enumerate(urls, start=1):
+            data = download_image(url)
+            if not data:
+                continue
+            if square:
+                data = make_square_preview(data) or data
+                ext = "jpg"
+            else:
+                ext = "jpg"
+            zf.writestr(f"etsy_image_{idx}.{ext}", data)
+    mem.seek(0)
+    return mem.getvalue()
+
+
+def generate_ai_image(api_key: str, photo_prompt: str, product_title: str, product_desc: str) -> bytes | None:
+    # Generates a new product-style image from text context. It does not truly edit the AliExpress image.
+    client = OpenAI(api_key=api_key)
+    final_prompt = f"""Create a square 1:1 professional luxury ecommerce product photo for Etsy.
+Product: {product_title}
+Product details: {product_desc[:900]}
+User photo prompt: {photo_prompt}
+Keep the product faithful to the described item. Clean premium lighting, realistic fashion editorial look, no logos, no text, no watermark."""
+    try:
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=final_prompt,
+            size="1024x1024",
+            n=1,
+        )
+        b64 = result.data[0].b64_json
+        return base64.b64decode(b64)
+    except Exception as e:
+        st.error(f"Génération photo impossible : {e}")
+        return None
+
+# -------------------- STATE --------------------
+if "product" not in st.session_state:
+    st.session_state.product = {"title":"", "description":"", "price":"", "images":[]}
+if "result" not in st.session_state:
+    st.session_state.result = None
+if "saved_prompts" not in st.session_state:
+    st.session_state.saved_prompts = {}
+if "generated_images" not in st.session_state:
+    st.session_state.generated_images = []
+
+OPENAI_SECRET = get_secret("OPENAI_API_KEY", "")
+SCRAPER_SECRET = get_secret("SCRAPERAPI_KEY", "")
+
+# -------------------- SIDEBAR --------------------
+with st.sidebar:
+    st.markdown("### 🔐 Clés")
+    openai_key = st.text_input("Clé OpenAI", value=OPENAI_SECRET, type="password")
+    scraper_key = st.text_input("Clé ScraperAPI", value=SCRAPER_SECRET, type="password")
+    st.caption("Tu peux sauvegarder ces clés dans les Secrets Streamlit.")
+    st.markdown("---")
+    st.markdown("### 💰 Prix")
+    margin = st.slider("Marge cible", 20, 90, 45)
+    shipping = st.number_input("Livraison estimée", min_value=0.0, value=0.0, step=0.5)
+    fees_pct = st.slider("Frais Etsy + paiement", 5, 30, 12)
+    currency = st.selectbox("Devise", ["EUR", "USD", "GBP", "CAD", "AUD"], index=0)
+
+# -------------------- HERO --------------------
+st.markdown("""
+<div class="hero">
+  <h1>🛍️ Générateur Etsy SEO — Accueil unique</h1>
+  <p style="font-size:18px;color:#4b5563;">Tout se fait sur cette page : lien AliExpress, prompts, photos, prix, génération et copie du résultat. L’interface est en français, mais les fiches Etsy sont générées en anglais pour le SEO.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# -------------------- MAIN LAYOUT --------------------
+left, right = st.columns([1.08, 0.92], gap="large")
+
+with left:
+    st.markdown('<div class="card"><h3><span class="step-badge">1</span>Produit AliExpress</h3>', unsafe_allow_html=True)
+    url = st.text_input("Lien AliExpress", placeholder="https://www.aliexpress.com/item/...")
+    c1, c2 = st.columns([1,1])
+    with c1:
+        extract_clicked = st.button("🔎 Extraire infos + photos", use_container_width=True)
+    with c2:
+        if st.button("🧹 Vider le produit", use_container_width=True):
+            st.session_state.product = {"title":"", "description":"", "price":"", "images":[]}
+            st.session_state.generated_images = []
+            st.rerun()
+    if extract_clicked:
+        if not url:
+            st.warning("Colle un lien AliExpress d’abord.")
+        else:
+            with st.spinner("Extraction AliExpress en cours..."):
+                html, err = fetch_url(url, scraper_key)
+                if err or not html:
+                    st.error(f"Extraction impossible : {err}. Colle les infos manuellement.")
+                else:
+                    data = extract_product_from_html(html)
+                    st.session_state.product = data
+                    if not data.get("title") and not data.get("description"):
+                        st.warning("AliExpress a bloqué ou masqué les infos utiles. Tu peux coller le titre/description manuellement.")
+                    else:
+                        st.success("Infos extraites. Vérifie et modifie si besoin.")
+                    st.rerun()
+
+    product = st.session_state.product
+    product["title"] = st.text_input("Titre fournisseur / AliExpress", value=product.get("title", ""), placeholder="Colle le titre du produit ici")
+    product["description"] = st.text_area("Description fournisseur / AliExpress", value=product.get("description", ""), height=160, placeholder="Colle la description du produit ici")
+    p1, p2 = st.columns(2)
+    with p1:
+        product["price"] = st.text_input("Prix fournisseur détecté", value=product.get("price", ""), placeholder="Optionnel")
+    with p2:
+        cost_price = st.number_input("Prix d’achat du produit", min_value=0.0, value=5.0, step=0.5)
+    st.session_state.product = product
+    sell_price = recommended_price(cost_price, shipping, margin, fees_pct)
+    st.info(f"Prix conseillé estimé : **{sell_price} {currency}**")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card"><h3><span class="step-badge">2</span>SEO, catégorie et prompt</h3>', unsafe_allow_html=True)
+    category = st.selectbox("Catégorie / type de boutique", list(CATEGORY_PRESETS.keys()))
+    default_context = CATEGORY_PRESETS[category]
+    category_context = st.text_area("Contexte de catégorie modifiable", value=default_context, height=95)
+    niche = st.text_input("Client cible / niche", placeholder="Exemple : gothic fashion, gift for women, home decor")
+    seo_keywords = st.text_input("Mots-clés SEO à ajouter", placeholder="Exemple : gothic corset, waist trainer, renaissance outfit")
+    competitor = st.text_area("Fiche concurrente / inspiration", height=85, placeholder="Optionnel : colle ici une fiche concurrente. L’IA s’inspire mais ne copie pas.")
+    tone = st.selectbox("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
+    main_prompt = st.text_area("Prompt principal modifiable", value=build_default_prompt(category_context), height=260)
+
+    sp1, sp2, sp3 = st.columns([1,1,1])
+    with sp1:
+        prompt_name = st.text_input("Nom du prompt à sauvegarder", placeholder="Ex : Corsets luxe")
+    with sp2:
+        if st.button("💾 Sauvegarder prompt", use_container_width=True):
+            if prompt_name:
+                st.session_state.saved_prompts[prompt_name] = main_prompt
+                st.success("Prompt sauvegardé pour cette session.")
+            else:
+                st.warning("Donne un nom au prompt.")
+    with sp3:
+        if st.session_state.saved_prompts:
+            chosen = st.selectbox("Charger", list(st.session_state.saved_prompts.keys()))
+            if st.button("📥 Utiliser", use_container_width=True):
+                main_prompt = st.session_state.saved_prompts[chosen]
+                st.rerun()
+
+    if st.session_state.saved_prompts:
+        st.download_button("⬇️ Télécharger mes prompts JSON", json.dumps(st.session_state.saved_prompts, ensure_ascii=False, indent=2), "prompts_etsy.json", "application/json")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card"><h3><span class="step-badge">3</span>Photos AliExpress et prompt image</h3>', unsafe_allow_html=True)
+    images = st.session_state.product.get("images", []) or []
+    if images:
+        st.caption(f"{len(images)} image(s) trouvée(s). Sélectionne celles que tu veux garder ou transformer.")
+        selected_urls = []
+        cols = st.columns(4)
+        for idx, img_url in enumerate(images[:12]):
+            with cols[idx % 4]:
+                st.image(img_url, use_container_width=True)
+                if st.checkbox("Sélectionner", value=idx < 4, key=f"imgsel_{idx}"):
+                    selected_urls.append(img_url)
+        z1, z2 = st.columns(2)
+        with z1:
+            if selected_urls:
+                st.download_button("⬇️ Télécharger photos originales", make_zip_from_images(selected_urls, square=False), "photos_aliexpress.zip", "application/zip", use_container_width=True)
+        with z2:
+            if selected_urls:
+                st.download_button("⬇️ Télécharger photos carrées propres", make_zip_from_images(selected_urls, square=True), "photos_carrees_etsy.zip", "application/zip", use_container_width=True)
+    else:
+        selected_urls = []
+        st.warning("Aucune photo extraite pour l’instant. Essaie avec ScraperAPI ou colle le titre/description manuellement.")
+
+    photo_prompt = st.text_area(
+        "Prompt photo personnalisable",
+        value="Refais ces photos de manière professionnelle et luxueuse. Je veux que la femme qui porte ces vêtements soit différente. Format carré 1:1. Style éditorial premium, éclairage studio, rendu réaliste, sans logo, sans texte, fidèle au produit.",
+        height=120,
+    )
+    col_img1, col_img2 = st.columns(2)
+    with col_img1:
+        nb_images = st.slider("Nombre de nouvelles photos IA", 1, 4, 1)
+    with col_img2:
+        st.caption("La génération IA utilise la clé OpenAI. Elle peut coûter plus cher que le texte.")
+    if st.button("✨ Générer nouvelles photos IA", use_container_width=True):
+        if not openai_key:
+            st.error("Ajoute ta clé OpenAI d’abord.")
+        elif not product.get("title") and not product.get("description"):
+            st.error("Ajoute ou extrais les infos produit avant de générer les photos.")
+        else:
+            st.session_state.generated_images = []
+            with st.spinner("Génération des photos IA..."):
+                for _ in range(nb_images):
+                    img_data = generate_ai_image(openai_key, photo_prompt, product.get("title",""), product.get("description",""))
+                    if img_data:
+                        st.session_state.generated_images.append(img_data)
+            if st.session_state.generated_images:
+                st.success("Photos générées.")
+                st.rerun()
+
+    if st.session_state.generated_images:
+        st.markdown("#### Photos IA générées")
+        cols = st.columns(4)
+        for i, data in enumerate(st.session_state.generated_images):
+            with cols[i % 4]:
+                st.image(data, use_container_width=True)
+                st.download_button("Télécharger", data, f"photo_ia_{i+1}.png", "image/png", key=f"dl_ai_{i}")
+        mem = io.BytesIO()
+        with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, data in enumerate(st.session_state.generated_images, start=1):
+                zf.writestr(f"photo_ia_{i}.png", data)
+        st.download_button("⬇️ Télécharger toutes les photos IA", mem.getvalue(), "photos_ia_etsy.zip", "application/zip", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with right:
+    st.markdown('<div class="card"><h3><span class="step-badge">4</span>Générer la fiche Etsy</h3>', unsafe_allow_html=True)
+    final_prompt = f"""
+{main_prompt}
 
 Supplier title:
-{data.get('title','')}
+{product.get('title','')}
 
 Supplier description:
-{data.get('description','')}
+{product.get('description','')}
 
 Supplier price:
-{data.get('price','')}
+{product.get('price','')}
 
 Target buyer / niche:
 {niche}
 
-SEO keywords to include naturally:
-{keywords}
+Additional SEO keywords:
+{seo_keywords}
 
-Competitor / inspiration, do not copy:
+Competitor / inspiration text, do not copy word-for-word:
 {competitor}
 
 Tone:
@@ -273,325 +489,52 @@ Tone:
 
 Cost price:
 {cost_price} {currency}
-
 Suggested selling price:
 {sell_price} {currency}
 
 Return ONLY valid JSON with these keys:
 seo_title, short_description, full_description, bullet_points, tags, keywords, category_suggestion, suggested_price, copy_paste_block
 """
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    return json.loads(response.choices[0].message.content)
-
-
-def download_image(url: str) -> bytes:
-    headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers, timeout=25)
-    r.raise_for_status()
-    return r.content
-
-
-def make_square_png(image_bytes: bytes, size: int = 1024) -> bytes:
-    im = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    im = ImageOps.exif_transpose(im)
-    im.thumbnail((size, size), Image.LANCZOS)
-    canvas = Image.new("RGB", (size, size), (255, 255, 255))
-    canvas.paste(im, ((size - im.width) // 2, (size - im.height) // 2))
-    out = io.BytesIO()
-    canvas.save(out, format="PNG", quality=95)
-    return out.getvalue()
-
-
-def image_to_data_url(png_bytes: bytes) -> str:
-    return "data:image/png;base64," + base64.b64encode(png_bytes).decode("utf-8")
-
-
-def generate_image_variation(api_key: str, image_bytes: bytes, prompt: str) -> bytes:
-    """Creates a square edited/generated image using OpenAI Images API.
-    The API may evolve; this uses the common images.edit endpoint with PNG input.
-    """
-    client = OpenAI(api_key=api_key)
-    square_png = make_square_png(image_bytes, 1024)
-    image_file = io.BytesIO(square_png)
-    image_file.name = "product.png"
-    result = client.images.edit(
-        model="gpt-image-1",
-        image=image_file,
-        prompt=prompt,
-        size="1024x1024",
-    )
-    b64 = result.data[0].b64_json
-    return base64.b64decode(b64)
-
-
-def make_zip(files: List[Tuple[str, bytes]]) -> bytes:
-    mem = io.BytesIO()
-    with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name, data in files:
-            zf.writestr(name, data)
-    mem.seek(0)
-    return mem.getvalue()
-
-# ----------------------------- Defaults -----------------------------
-DEFAULT_PROMPT = """You are an Etsy SEO expert and high-converting product listing copywriter.
-I run an Etsy dropshipping store. Generate a complete Etsy product listing: SEO title, warm conversion-focused description, bullet points, exactly 13 Etsy tags and useful keywords. The style must be natural, persuasive and not robotic. The output must be in English."""
-
-CORSET_PROMPT = """You are an Etsy SEO expert and high-converting product listing copywriter.
-I run an Etsy store specialized in corsets, lingerie-inspired fashion, gothic fashion, renaissance fashion, burlesque fashion, shapewear and alternative fashion. Focus on style, confidence, giftability, comfort, outfit ideas and conversion-focused Etsy SEO. The output must be in English."""
-
-DEFAULT_PHOTO_PROMPT = """Refais ces photos de manière professionnelle et luxueuse.
-Conserve fidèlement le vrai produit, ses détails, sa couleur, sa forme et sa matière.
-Remplace la femme qui porte le vêtement par une autre femme professionnelle et élégante.
-Format carré 1:1, lumière studio premium, style boutique de luxe, arrière-plan propre, image réaliste, haute qualité.
-Ne change pas le produit vendu et n'ajoute pas de logo ni de texte."""
-
-CATEGORY_PROMPTS = {
-    "Corsets / Lingerie / Mode alternative": CORSET_PROMPT,
-    "Bijoux / Accessoires": "You are an Etsy SEO expert for jewelry and fashion accessories. Write elegant, gift-focused English listings with natural SEO keywords.",
-    "Décoration maison": "You are an Etsy SEO expert for home decor. Write warm, aesthetic, giftable English listings for home decoration buyers.",
-    "Animaux / Pet lovers": "You are an Etsy SEO expert for pet products and gifts for pet lovers. Write friendly, emotional and search-optimized English listings.",
-    "Beauté / Bien-être": "You are an Etsy SEO expert for beauty and wellness products. Write trustworthy, gentle and conversion-focused English listings.",
-    "Mode générale": "You are an Etsy SEO expert for fashion products. Write stylish, natural and conversion-focused English listings.",
-    "Prompt personnalisé": DEFAULT_PROMPT,
-}
-
-if "extracted" not in st.session_state:
-    st.session_state.extracted = {"title": "", "description": "", "price": "", "images": []}
-if "result" not in st.session_state:
-    st.session_state.result = None
-if "custom_prompt" not in st.session_state:
-    st.session_state.custom_prompt = CORSET_PROMPT
-if "photo_prompt" not in st.session_state:
-    st.session_state.photo_prompt = DEFAULT_PHOTO_PROMPT
-if "generated_photos" not in st.session_state:
-    st.session_state.generated_photos = []
-
-# ----------------------------- Sidebar -----------------------------
-OPENAI_SECRET = get_secret("OPENAI_API_KEY", "")
-SCRAPERAPI_SECRET = get_secret("SCRAPERAPI_KEY", "")
-
-with st.sidebar:
-    st.header("⚙️ Réglages")
-    openai_key = st.text_input("Clé OpenAI", value=OPENAI_SECRET, type="password")
-    scraperapi_key = st.text_input("Clé ScraperAPI", value=SCRAPERAPI_SECRET, type="password")
-    st.markdown("<div class='info-box'>Astuce : mets tes clés dans les Secrets Streamlit pour ne plus les retaper.</div>", unsafe_allow_html=True)
-    st.divider()
-    st.subheader("💰 Prix")
-    margin = st.slider("Marge cible", 20, 90, 45, format="%d%%")
-    shipping = st.number_input("Livraison estimée", min_value=0.0, value=0.0, step=0.5)
-    fees_pct = st.slider("Frais Etsy + paiement", 5, 30, 12, format="%d%%")
-    currency = st.selectbox("Devise", ["EUR", "USD", "GBP", "CAD", "AUD"], index=0)
-
-# ----------------------------- Header -----------------------------
-st.markdown(
-    """
-<div class='hero'>
-<h1>🛍️ Générateur Etsy SEO</h1>
-<p>Interface en français. Les fiches Etsy générées restent en anglais pour maximiser le SEO et la conversion.</p>
-<p><b>V14 :</b> extraction AliExpress + photos + prompt photo personnalisable + génération d'images carrées 1:1.</p>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
-tab_product, tab_seo, tab_photos, tab_result = st.tabs(["1️⃣ Produit", "2️⃣ SEO & Prompt", "3️⃣ Photos", "4️⃣ Résultat"])
-
-# ----------------------------- Product tab -----------------------------
-with tab_product:
-    st.markdown("<div class='card'><h3>📦 Étape 1 — Récupère ou colle les infos produit</h3><p>Colle un lien AliExpress puis essaie l’extraction. Si AliExpress bloque, colle le titre et la description manuellement.</p></div>", unsafe_allow_html=True)
-    url = st.text_input("Lien AliExpress", placeholder="https://www.aliexpress.com/item/...")
-    c1, c2, c3 = st.columns([1.2, 1, 1])
-    with c1:
-        if st.button("🔎 Extraire infos + photos", type="primary", use_container_width=True):
-            if not url:
-                st.warning("Colle d'abord un lien AliExpress.")
-            else:
-                with st.spinner("Extraction en cours..."):
-                    html, err = fetch_url(url, scraperapi_key)
-                    if err or not html:
-                        st.error(f"Extraction impossible : {err}. Colle les infos manuellement.")
-                    else:
-                        data = extract_product_from_html(html)
-                        if not data.get("title") and not data.get("description"):
-                            st.warning("AliExpress a bloqué ou caché les données utiles. Essaie avec ScraperAPI ou colle manuellement.")
-                        else:
-                            st.session_state.extracted = data
-                            st.success(f"Infos extraites. Photos trouvées : {len(data.get('images', []))}")
-                            st.rerun()
-    with c2:
-        if st.button("🧹 Vider le produit", use_container_width=True):
-            st.session_state.extracted = {"title": "", "description": "", "price": "", "images": []}
-            st.session_state.generated_photos = []
-            st.rerun()
-    with c3:
-        st.markdown("<div class='warn-box'>ScraperAPI est recommandé si AliExpress bloque.</div>", unsafe_allow_html=True)
-
-    extracted = st.session_state.extracted
-    left, right = st.columns([1.4, 1])
-    with left:
-        title = st.text_input("Titre fournisseur / AliExpress", value=extracted.get("title", ""), placeholder="Colle le titre du produit ici")
-        description = st.text_area("Description fournisseur / AliExpress", value=extracted.get("description", ""), height=220, placeholder="Colle la description AliExpress ici")
-    with right:
-        supplier_price = st.text_input("Prix fournisseur détecté", value=extracted.get("price", ""), placeholder="Optionnel")
-        cost_price = st.number_input("Prix d'achat du produit", min_value=0.0, value=5.0, step=0.5)
-        sell_price = recommended_price(cost_price, shipping, margin, fees_pct)
-        st.markdown(f"<div class='ok-box'><b>Prix conseillé estimé</b><br><span style='font-size:26px;font-weight:900;'>{sell_price} {currency}</span><br><small>Calculé avec marge, frais et livraison.</small></div>", unsafe_allow_html=True)
-
-# ----------------------------- SEO tab -----------------------------
-with tab_seo:
-    st.markdown("<div class='card'><h3>🎯 Étape 2 — Choisis ta stratégie SEO</h3><p>Choisis une catégorie, modifie le prompt et ajoute des mots-clés si besoin.</p></div>", unsafe_allow_html=True)
-    col1, col2 = st.columns([1, 1.35])
-    with col1:
-        category = st.selectbox("Catégorie / type de boutique", list(CATEGORY_PROMPTS.keys()))
-        if st.button("Appliquer le prompt de cette catégorie", use_container_width=True):
-            st.session_state.custom_prompt = CATEGORY_PROMPTS[category]
-            st.success("Prompt appliqué.")
-        niche = st.text_input("Client cible / niche", placeholder="Exemple : gothic fashion, gift for women, home decor")
-        keywords = st.text_input("Mots-clés SEO à ajouter", placeholder="Exemple : gothic corset, waist trainer, renaissance outfit")
-        tone = st.selectbox("Ton de rédaction", ["Premium and trustworthy", "Warm and emotional", "Minimalist and modern", "Gift-focused", "Luxury boutique"])
-    with col2:
-        st.text_area("Prompt principal modifiable", key="custom_prompt", height=220)
-        competitor = st.text_area("Fiche concurrente / inspiration", placeholder="Optionnel : colle ici un titre ou une description concurrente. L’IA ne doit pas copier.", height=110)
-
-    if st.button("✨ Générer la fiche Etsy", type="primary", use_container_width=True):
+    if st.button("🚀 Générer la fiche produit", use_container_width=True):
         if not openai_key:
-            st.error("Ajoute ta clé OpenAI dans la barre de gauche.")
-        elif not title and not description:
-            st.error("Extrais ou colle au moins un titre ou une description produit.")
+            st.error("Ajoute ta clé OpenAI dans la colonne de gauche.")
+        elif not product.get("title") and not product.get("description"):
+            st.error("Ajoute ou extrais les infos produit d’abord.")
         else:
-            with st.spinner("Génération de la fiche Etsy en anglais..."):
+            with st.spinner("Génération SEO Etsy en anglais..."):
                 try:
-                    st.session_state.result = generate_listing(
-                        openai_key,
-                        {"title": title, "description": description, "price": supplier_price},
-                        st.session_state.custom_prompt,
-                        niche,
-                        tone,
-                        keywords,
-                        competitor,
-                        cost_price,
-                        shipping,
-                        margin,
-                        fees_pct,
-                        currency,
-                    )
-                    st.success("Fiche générée. Va dans l'onglet Résultat.")
+                    st.session_state.result = generate_listing(openai_key, {"prompt": final_prompt})
+                    st.success("Fiche générée.")
                 except Exception as e:
                     st.error(f"Génération impossible : {e}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------------------- Photos tab -----------------------------
-with tab_photos:
-    st.markdown("<div class='card'><h3>🖼️ Étape 3 — Photos AliExpress + génération IA</h3><p>Les images extraites sont affichées ici. Tu peux choisir lesquelles utiliser et générer des versions carrées 1:1 avec ton prompt.</p></div>", unsafe_allow_html=True)
-    st.markdown("<div class='warn-box'><b>Important :</b> garde des images fidèles au vrai produit. Évite de créer une photo trompeuse ou qui modifie le produit vendu.</div>", unsafe_allow_html=True)
-    images = st.session_state.extracted.get("images", []) or []
-
-    if not images:
-        st.info("Aucune photo extraite pour l'instant. Va dans l'onglet Produit et clique sur 'Extraire infos + photos'.")
-    else:
-        st.write(f"Photos trouvées : **{len(images)}**")
-        selected_urls = []
-        cols = st.columns(4)
-        for i, img_url in enumerate(images):
-            with cols[i % 4]:
-                st.markdown("<div class='img-card'>", unsafe_allow_html=True)
-                try:
-                    st.image(img_url, use_container_width=True)
-                except Exception:
-                    st.caption("Aperçu impossible")
-                if st.checkbox(f"Utiliser photo {i+1}", value=i < 4, key=f"select_img_{i}"):
-                    selected_urls.append(img_url)
-                st.caption(img_url[:60] + "...")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        st.divider()
-        st.subheader("Prompt photo personnalisable")
-        st.text_area("Prompt utilisé pour refaire les photos", key="photo_prompt", height=170)
-        c1, c2, c3 = st.columns([1, 1, 1])
-        with c1:
-            max_photos = st.number_input("Nombre max de photos à générer", min_value=1, max_value=10, value=min(4, max(1, len(selected_urls))), step=1)
-        with c2:
-            st.caption("Chaque image générée consomme des crédits OpenAI Images.")
-        with c3:
-            st.caption("Format généré : carré 1:1, 1024x1024.")
-
-        if st.button("✨ Générer les photos modifiées", type="primary", use_container_width=True):
-            if not openai_key:
-                st.error("Ajoute ta clé OpenAI dans la barre de gauche.")
-            elif not selected_urls:
-                st.error("Sélectionne au moins une photo.")
-            else:
-                generated = []
-                progress = st.progress(0)
-                urls_to_process = selected_urls[: int(max_photos)]
-                for idx, img_url in enumerate(urls_to_process):
-                    try:
-                        with st.spinner(f"Génération photo {idx+1}/{len(urls_to_process)}..."):
-                            source_bytes = download_image(img_url)
-                            edited = generate_image_variation(openai_key, source_bytes, st.session_state.photo_prompt)
-                            generated.append((f"etsy_photo_ai_{idx+1}.png", edited))
-                    except Exception as e:
-                        st.error(f"Impossible de générer la photo {idx+1} : {e}")
-                    progress.progress((idx + 1) / len(urls_to_process))
-                st.session_state.generated_photos = generated
-                if generated:
-                    st.success(f"Photos générées : {len(generated)}")
-
-        if selected_urls:
-            raw_files = []
-            if st.button("📦 Télécharger les photos AliExpress sélectionnées en ZIP", use_container_width=True):
-                with st.spinner("Préparation du ZIP..."):
-                    for i, u in enumerate(selected_urls):
-                        try:
-                            raw_files.append((f"aliexpress_photo_{i+1}.jpg", download_image(u)))
-                        except Exception:
-                            pass
-                    if raw_files:
-                        st.download_button("Télécharger le ZIP AliExpress", data=make_zip(raw_files), file_name="photos_aliexpress.zip", mime="application/zip")
-
-    generated = st.session_state.generated_photos
-    if generated:
-        st.divider()
-        st.subheader("Photos générées")
-        cols = st.columns(4)
-        for i, (name, data) in enumerate(generated):
-            with cols[i % 4]:
-                st.image(data, caption=name, use_container_width=True)
-        st.download_button("📦 Télécharger les photos générées en ZIP", data=make_zip(generated), file_name="photos_etsy_generees.zip", mime="application/zip", use_container_width=True)
-
-# ----------------------------- Result tab -----------------------------
-with tab_result:
-    st.markdown("<div class='card'><h3>✅ Résultat — Fiche Etsy générée</h3><p>Copie-colle les éléments dans Etsy. Le contenu ci-dessous est en anglais.</p></div>", unsafe_allow_html=True)
     result = st.session_state.result
+    st.markdown('<div class="card"><h3>📋 Résultat prêt à copier</h3>', unsafe_allow_html=True)
     if not result:
-        st.info("Aucune fiche générée pour l'instant. Va dans l'onglet SEO & Prompt puis clique sur Générer.")
+        st.info("La fiche générée apparaîtra ici.")
     else:
-        st.markdown("### SEO Title")
-        st.code(result.get("seo_title", ""), language=None)
-        st.markdown("### Short description")
+        st.markdown("#### Titre SEO")
+        st.code(result.get("seo_title", ""))
+        st.markdown("#### Description courte")
         st.write(result.get("short_description", ""))
-        st.markdown("### Full description")
+        st.markdown("#### Description complète")
         st.write(result.get("full_description", ""))
-        st.markdown("### Bullet points")
+        st.markdown("#### Points clés")
         for b in result.get("bullet_points", []):
             st.write(f"• {b}")
-        st.markdown("### 13 Etsy tags")
+        st.markdown("#### 13 tags Etsy")
         tags = result.get("tags", [])
         if isinstance(tags, list):
             tags_line = ", ".join(tags)
         else:
             tags_line = str(tags)
-        st.code(tags_line, language=None)
-        st.markdown("### Keywords")
-        kws = result.get("keywords", [])
-        st.write(", ".join(kws) if isinstance(kws, list) else kws)
-        st.markdown("### Category suggestion")
-        st.write(result.get("category_suggestion", ""))
-        st.markdown("### Suggested price")
-        st.code(str(result.get("suggested_price", "")), language=None)
-        st.markdown("### Bloc prêt à copier")
-        st.text_area("Ready to copy", value=result.get("copy_paste_block", ""), height=300)
+        st.code(tags_line)
+        st.markdown("#### Prix conseillé")
+        st.code(str(result.get("suggested_price", f"{sell_price} {currency}")))
+        st.markdown("#### Bloc complet")
+        st.text_area("Copie-colle dans Etsy", value=result.get("copy_paste_block", ""), height=300)
+        st.download_button("⬇️ Télécharger la fiche TXT", result.get("copy_paste_block", ""), "fiche_etsy.txt", "text/plain", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="small-card">⚠️ Important : garde des photos fidèles au vrai produit et assure-toi d’avoir le droit d’utiliser les images. Évite les fiches trompeuses sur Etsy.</div>', unsafe_allow_html=True)
