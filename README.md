@@ -1,31 +1,21 @@
-# Etsy Listing Generator V5
+# Etsy Product Listing Generator V6 - Interface Française
 
-A Streamlit app that generates English Etsy product listings from AliExpress product data.
+Interface en français, génération des fiches Etsy en anglais.
 
-## V5 features
+Fonctions :
+- URL AliExpress avec extraction automatique si possible
+- ScraperAPI optionnel pour contourner les blocages AliExpress
+- Prompt modifiable à la main
+- Catégories prédéfinies
+- Mots-clés SEO personnalisés
+- Fiche concurrente pour inspiration
+- Génération en anglais : titre, description, 13 tags, prix conseillé
 
-- AliExpress URL extraction when possible
-- Optional ScraperAPI support
-- OpenAI-powered English SEO title, description and tags
-- Editable prompt area directly inside the website
-- Multiple preset categories:
-  - Corsets
-  - Jewelry
-  - Home Decor
-  - Pet Products
-  - Beauty Accessories
-  - Clothing / Fashion
-  - Custom / Manual prompt
-- Optional SEO keywords
-- Optional competitor inspiration field
+## Secrets Streamlit recommandés
 
-## Streamlit secrets
-
-Add these in Streamlit Cloud secrets:
+Dans Streamlit Cloud > Settings > Secrets :
 
 ```toml
-OPENAI_API_KEY = "your_openai_key_here"
-SCRAPERAPI_KEY = "your_scraperapi_key_here"
+OPENAI_API_KEY = "ta_cle_openai"
+SCRAPERAPI_KEY = "ta_cle_scraperapi"
 ```
-
-ScraperAPI is optional, but helps with AliExpress extraction.
