@@ -1,26 +1,22 @@
-# Etsy Product Listing Generator V3
+# Etsy Corset Listing Generator V4
 
-This Streamlit web app generates English Etsy SEO product listings from AliExpress supplier information.
+Streamlit app for generating English Etsy SEO product listings specialized for corsets.
 
-## V3 features
+## Features
+- AliExpress URL extraction when possible
+- Optional ScraperAPI support for blocked pages
+- English Etsy SEO title
+- Warm conversion-focused description with a few emojis
+- Exactly 13 Etsy tags
+- Optional competitor/keyword input
+- Suggested price calculation
 
-- Paste an AliExpress product URL
-- Try direct extraction first
-- Optional ScraperAPI support for more reliable AliExpress extraction
-- Generate English SEO Etsy title, descriptions, 13 tags, category suggestion and price
-- Manual fallback if AliExpress blocks extraction
-
-## Streamlit Secrets
-
-In Streamlit Cloud, open your app settings and add:
+## Streamlit secrets
+Add these in Streamlit Cloud secrets:
 
 ```toml
 OPENAI_API_KEY = "your_openai_key_here"
-SCRAPERAPI_KEY = "your_scraperapi_key_here" # optional
+SCRAPERAPI_KEY = "your_scraperapi_key_here"
 ```
 
-You can also type the keys in the sidebar while using the app.
-
-## Main file
-
-`app.py`
+SCRAPERAPI_KEY is optional, but useful for AliExpress extraction.
